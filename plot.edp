@@ -1,0 +1,115 @@
+verbosity=0;
+
+include "utils.edp"
+include "params.edp"
+include "defs.edp"
+
+Wh UxCR, UyCR;
+Vh PCR;
+VC CPCR;
+
+{
+    string uxfilename = "ux.dat";
+    string uyfilename = "uy.dat";
+    string pfilename = "p.dat";
+    string cpfilename = "CP.dat";
+
+    ifstream uxfile(uxfilename);
+    ifstream uyfile(uyfilename);
+    ifstream pfile(pfilename);
+
+    uxfile >> UxCR[];
+    uyfile >> UyCR[];
+    pfile  >> PCR[];
+
+
+    int ison = 30;
+    real[int] vxisolevels(ison);
+    real[int] vyisolevels(ison);
+    real[int] pisolevels(ison);
+
+    real vxisomin = -1.19035e-30;
+    real vxisomax = 0.364415;
+    real vyisomin = -0.0859587;
+    real vyisomax = 0.0859587;
+    real pisomin  = -1282.89;
+    real pisomax  = 1282.89;
+
+    //vxisomin = UxCR[].min;
+    //vxisomax = UxCR[].max;
+    //vyisomin = UyCR[].min;
+    //vyisomax = UyCR[].max;
+    //pisomin  = PCR[].min;
+    //pisomax  = PCR[].max;
+
+
+    cout << "real vxisomin = " << vxisomin << ";" << endl;
+    cout << "real vxisomax = " << vxisomax << ";" << endl;
+    cout << "real vyisomin = " << vyisomin << ";" << endl;
+    cout << "real vyisomax = " << vyisomax << ";" << endl;
+    cout << "real pisomin  = " << pisomin  << ";" << endl;
+    cout << "real pisomax  = " << pisomax  << ";" << endl;
+
+    for(int i=0; i<ison; i++) {
+        vxisolevels[i] = vxisomin + (vxisomax-vxisomin)*i/(ison-1);
+        vyisolevels[i] = vyisomin + (vyisomax-vyisomin)*i/(ison-1);
+        pisolevels[i] = pisomin + (pisomax-pisomin)*i/(ison-1);
+    }
+
+    //cout << UxCR[].min << "||" << UxCR[].max << endl;
+    //real xmin=-0.00307621;
+    //real xmax=0.384527;
+
+    //int nbisos = 200;
+    //real[int] isos(nbisos+2);
+    //real step = (xmax-xmin) / (nbisos-1);
+    //for (int i=0; i<nbisos; i++)
+    //{
+    //    isos[i+1] = xmin + step*i;
+    //}
+    //isos[0] = UxCR[].min;
+    //isos[nbisos+1] = UxCR[].max;
+    //plot(UxCR, fill=1, wait=1, cmm="x velocity", viso=isos);
+
+    plot(UxCR, fill=1, wait=1, cmm="x velocity", value=1, nbiso=100, ps="ux.ps");
+    plot(UyCR, fill=1, wait=1, cmm="y velocity", value=1, nbiso=100, ps="uy.ps");
+    //plot(UxCR, fill=1, wait=1, ps="ux.ps", viso=vxisolevels, value=1);
+    //plot(UyCR, fill=1, wait=1, ps="uy.ps", viso=vyisolevels, value=1);
+
+    varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
+    matrix heat = heatstep(Vh, Vh);
+    Vh tempholes1, holes1 = bath;
+    Zh tempholes0, mask;
+    tempholes1[] = heat*holes1[];
+    tempholes0 = tempholes1 > 0;
+    mask = 1-tempholes0;
+
+    //plot([UxCR, UyCR], cmm="velocity");
+
+    if (fileexists(cpfilename) == 0)
+    {
+        ifstream cpfile(cpfilename);
+        cpfile  >> CPCR[];
+        //PCR = PCR + CPCR;
+        real cpmin = CPCR[].min, cpmax = CPCR[].max;
+        cout << "Coarse pressure min, max: " << cpmin << ", " << cpmax << endl;
+        real meanp = int2d(MC)(CPCR);
+        real meanpmasked = int2d(MC)(CPCR*mask);
+        cout << "Average coarse pressure: " << meanp << endl;
+        cout << "Average masked coarse pressure: " << meanpmasked << endl;
+        //plot(CPCR, fill=1, wait=1, cmm="coarse pressure (min/max = " + cpmin + "/" + cpmax + ")", nbiso=20, ps="pressure.ps");
+        plot(CPCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
+
+    }
+
+    real pmin = PCR[].min, pmax = PCR[].max;
+
+    cout << "Fine pressure min, max: " << pmin << ", " << pmax << endl;
+
+    real meanpf = int2d(Th)(PCR);
+    real meanpfmasked = int2d(Th)(PCR*mask);
+    cout << "Average fine pressure: " << meanpf << endl;
+    cout << "Average masked fine pressure: " << meanpfmasked << endl;
+    //plot(PCR, fill=1, wait=1, cmm="pressure (min/max = " + pmin + "/" + pmax +")", nbiso=20);
+    plot(PCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
+}

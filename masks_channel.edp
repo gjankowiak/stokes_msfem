@@ -1,0 +1,4 @@
+include "params_#config#.edp"
+
+ofstream f("masks/#config#/#Nf#.dat");
+f << bath;

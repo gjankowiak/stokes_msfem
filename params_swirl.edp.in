@@ -1,0 +1,22 @@
+string config = "swirl";
+bool normp = false;
+bool savebasisfuncs = false;
+bool penalpressure = #PP#;
+
+real tgv=1E10;
+
+real eps=1;
+real radiusfactor = 0.5;
+real stabsig = 1e-2;
+
+real Lx=1, Ly=1; //Omega=(0,Lx) X (0,Ly)
+int Nf=#Nf#;
+int Nx=Nf, Ny=Nf;
+real delta=1.0/Nf, La=delta;
+
+int n=#n#;
+int nx=n, ny=n;  //coarse mesh
+int cx=Nx/nx, cy=Ny/ny; //fine mesh on every coarse cell
+real Hx=Lx/nx, Hy=Ly/ny;
+
+int FBedge=#CRk#;

@@ -1,0 +1,1 @@
+cp -d -u -v CRk*.edp defs*.edp run.sh _run.sh _run_ref.sh prepare_params.sh params*.in REF*.edp utils.edp save.edp holes*.edp ezplot.sh plot_channel.edp plot_swirl.edp error.sh error.edp.in make_links.sh watch_results.sh copy.sh "gauss/${1}"

@@ -1,0 +1,12 @@
+include "utils.edp"
+include "params.edp"
+include "defs.edp"
+include "configs/#config#/holes.edp"
+
+bathone = bat;
+bath = bathone > 0;
+
+string maskfilename;
+maskfilename = "configs/#config#/masks/" + Nf + ".dat";
+ofstream f(maskfilename);
+f << bath[];

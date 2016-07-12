@@ -1,0 +1,82 @@
+verbosity=0;
+
+include "utils.edp"
+include "params.edp"
+
+int newn = 16;
+int aspect = nx/ny;
+n = newn;
+nx = aspect*n; ny = n;
+cx=Nx/nx; cy=Ny/ny; //fine mesh on every coarse cell
+Hx=Lx/nx; Hy=Ly/ny;
+
+cout << "n: " << n << endl;
+
+include "defs.edp"
+
+Wh UxCR, UyCR, UxCRalt, UyCRalt;
+Vh PCR, PCRalt;
+VC CPCR, CPCRalt;
+
+Vh Uerror;
+Vh CPCRerror;
+Vh PCRerror;
+
+{
+    string uxfilename = "ux.dat";
+    string uyfilename = "uy.dat";
+    string pfilename = "p.dat";
+    string cpfilename = "CP.dat";
+
+    string uxfilenamealt = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR2_test_data/128-16/ux.dat";
+    string uyfilenamealt = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR2_test_data/128-16/uy.dat";
+    string pfilenamealt = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR2_test_data/128-16/p.dat";
+    string cpfilenamealt = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR2_test_data/128-16/CP.dat";
+
+    ifstream uxfile(uxfilename);
+    ifstream uyfile(uyfilename);
+    ifstream pfile(pfilename);
+
+    ifstream uxfilealt(uxfilenamealt);
+    ifstream uyfilealt(uyfilenamealt);
+    ifstream pfilealt(pfilenamealt);
+    ifstream cpfilealt(cpfilenamealt);
+
+    varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
+    matrix heat = heatstep(Vh, Vh);
+    Vh tempholes1, holes1 = bath;
+    Zh tempholes0, mask;
+    tempholes1[] = heat*holes1[];
+    tempholes0 = tempholes1 > 0;
+    mask = 1-tempholes0;
+
+    uxfile >> UxCR[];
+    uyfile >> UyCR[];
+    pfile  >> PCR[];
+
+    uxfilealt >> UxCRalt[];
+    uyfilealt >> UyCRalt[];
+    pfilealt  >> PCRalt[];
+    cpfilealt  >> CPCRalt[];
+
+    Uerror = abs((UxCR-UxCRalt)) + abs((UyCR-UyCRalt));
+
+    bool logplot = false;
+
+    if (logplot) {
+        CPCRerror = log(abs(((CPCR-CPCRalt))*mask));
+        PCRerror = log(abs(((PCR-PCRalt))*mask));
+
+        real[int] logisos = [-6,-5,-4,-3,-2,1,0,1,2,3,4,5,6,7,8,9,10];
+
+        plot(CPCRerror, fill=1, value=1, viso=logisos, cmm="coarse pressure error");
+        plot(PCRerror, fill=1, value=1, viso=logisos, cmm="pressure error");
+    } else {
+        CPCRerror = ((CPCR-CPCRalt))*mask;
+        PCRerror = ((PCR-PCRalt))*mask;
+
+        plot(CPCRerror, fill=1, value=1, cmm="coarse pressure error");
+        plot(PCRerror, fill=1, value=1, cmm="pressure error");
+    }
+
+}

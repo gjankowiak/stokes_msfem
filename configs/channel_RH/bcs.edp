@@ -1,0 +1,5 @@
+func fx=0;
+func fy=0;
+func gx=(Ly^2/4-(Y-Ly/2)^2) * ((abs(X) < 1e-8) || (abs(X-Lx) < 1e-8));
+func gy=0*y;
+

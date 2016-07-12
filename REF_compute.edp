@@ -1,0 +1,136 @@
+macro grad(u) [dx(u), dy(u)] //
+macro div(ux, uy) (dx(ux)+dy(uy)) //
+
+macro a(u, v, nu, sigma) (nu*(dx(u)*dx(v)+dy(u)*dy(v)) + sigma*u*v) //
+macro bx(u, q) ( q*dx(u)) //
+macro by(u, q) ( q*dy(u)) //
+
+bool uzawa = true;
+
+Wh Ux, Uy;
+Vh gp, pp, ppp;
+
+varf Ahx(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=gx);
+varf Ahy(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=gy);
+varf Ah(uh, vh)  = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=0);
+varf Bxh(uh, qh) = int2d(Th)(bx(uh, qh));
+varf Byh(uh, qh) = int2d(Th)(by(uh, qh));
+varf Ph(unused, qh)   = int2d(Th)(qh);
+varf Stab(ph, qh) = int2d(Th)((1-normp)*1e-12*ph*qh+stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
+
+//real stabtheta = 1e-1*delta*delta;
+//varf Stab(ph,qh) = int2d(Th)( stabtheta*(dx(qh)*dx(ph)+dy(ph)*dy(qh)) + 1e-12*ph*qh );
+
+varf RHSx(unused, vh) = int2d(Th)(vh*fx) + on(1,2,3,4,unused=gx);
+varf RHSy(unused, vh) = int2d(Th)(vh*fy) + on(1,2,3,4,unused=gy);
+varf RHSp(unused, qh) = int2d(Th)(+stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
+
+if (uzawa) {
+    //macro anu(u,v) (dx(u)*dx(v)*nu+dy(u)*dy(v)*nu+u*v*sig) //
+
+    //varf A(u,uu) = int2d(Th)(a(u,uu, nuh, sigh)) + on(1,2,3,4,u=0);
+    //varf Bx(u,q) = int2d(Th)( (dx(u)*q));
+    //varf By(u,q) = int2d(Th)( (dy(u)*q));
+    //varf c(p,pp) = int2d(Th)( stabsig*hTriangle^2*(dx(p)*dx(pp)+dy(p)*dy(pp)) + 1e-12*p*pp );
+    //varf RHSx(u,uu) = int2d(Th)(fx*uu) + on(1,2,3,4,u=gx);
+    //varf RHSy(v,vv) = int2d(Th)(fy*vv) + on(1,2,3,4,v=gy);
+
+    //matrix A= a(Uh,Uh,solver=sparsesolver);
+    matrix A  = Ah(Wh,Wh,solver=UMFPACK);
+    matrix Bx = Bxh(Wh,Vh);
+    matrix By = Byh(Wh,Vh);
+    matrix C  = Stab(Vh,Vh);
+    Wh Fx, Fy, b;
+
+    Fx[]=RHSx(0,Wh); Fy[]=RHSy(0,Wh);
+
+
+    int iter=0;
+    func real[int] divup(real[int] & pp)
+    {
+        int verb=verbosity;
+        verbosity=0;
+        b[]  = Bx'*pp; b[] += Fx[];
+        Ux[] = A^-1*b[];
+        b[]  = By'*pp; b[] += Fy[];
+        Uy[] = A^-1*b[];
+        ppp[] =   C*pp;
+        ppp[] +=  Bx*Ux[];
+        ppp[] +=  By*Uy[];
+        verbosity=verb;
+        cout <<"iter "<<iter++<<endl;
+        return ppp[] ;
+    };
+    gp=0;pp=0;
+    LinearCG(divup,gp[],pp[],eps=1e-8,nbiter=1500);
+    divup(gp[]);
+
+} else {
+
+    int dofoffset = 0;
+    real lam;
+    if (normp)
+        dofoffset = 1;
+
+    matrix A, Ax, Ay;
+
+    {
+        Ax  = Ahx(Wh,Wh);
+        Ay  = Ahy(Wh,Wh);
+    }
+
+    matrix Bx = Bxh(Wh,Vh);
+    matrix By = Byh(Wh,Vh);
+    matrix St = Stab(Vh, Vh);
+    real[int,int] PP(1, Vh.ndof);
+    matrix MPP;
+
+    cout << "Assembling FEM matrix... ";
+
+    matrix C;
+    {
+        C = [[Ax,  0,   Bx'],
+          [0,   Ay,  By'],
+          [Bx,  By,  St]];
+        if (normp)
+        {
+            PP = Ph(0, Vh);
+            MPP = PP;
+            C = [[ Ax,  0,   Bx', 0   ],
+              [ 0,   Ay,  By', 0   ],
+              [ Bx,  By,  St,  MPP'],
+              [ 0,   0,   MPP,  0  ]];
+        }
+    }
+
+    cout << "done." << endl;
+
+    real[int] B(2*Wh.ndof+Vh.ndof+dofoffset);
+    B = 0;
+
+    B(0:Wh.ndof-1) = RHSx(0, Wh);
+    B(Wh.ndof:2*Wh.ndof-1) = RHSy(0, Wh);
+    B(2*Wh.ndof:(2*Wh.ndof+Vh.ndof-1)) = RHSp(0,Vh);
+
+    cout << "setting solver... " << endl;
+    set(C, solver=sparsesolver, master=0);
+    cout << "done." << endl;
+
+    real[int] S(2*Wh.ndof+Vh.ndof+dofoffset);
+
+    cout << "Solving..." << endl;
+    S = C^-1 * B;
+    if (normp)
+        [Ux[], Uy[], gp[], lam] = S;
+    else
+        [Ux[], Uy[], gp[]] = S;
+    gp = gp - int2d(MC)(gp)/(Lx*Ly);
+    cout << "done" << endl;
+}
+
+Wh gxh, gyh;
+gxh = fx;
+gyh = fy;
+
+//plot([gxh, gyh], wait=1);
+//plot([Ux, Uy], wait=1);

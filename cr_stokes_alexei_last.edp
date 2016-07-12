@@ -1,0 +1,339 @@
+// MsFEM Crouzeix-Raviart
+// takes the reference solution from "ex-sol.dat" so that "sol-ex.edp" should be run first
+
+ load "MUMPS"
+//load "SuperLu"
+// string ssparams="nprow=1, npcol="+mpisize;
+
+include "params.edp"
+ofstream fres(errfile, append);
+
+
+macro a(u,v,nu,sigma) (dx(u)*dx(v)*nu+dy(u)*dy(v)*nu+u*v*sigma) //
+
+
+
+
+    mesh K=square(cx,cy,[Hx*x, Hy*y]);
+    real X0, Y0;
+
+    fespace VK(K,P1);
+    fespace PK(K,P1);
+    mesh M=emptymesh(K);
+    fespace VM(M,P1);
+    fespace ZK(K,P0);
+
+    int[int] DOFg(4*FBedge), DOFr(4*FBedge);
+    int[int] DOFl, PresMatLoc;
+    if (FBedge==2) {
+        DOFl=[0,4,1,5,2,6,3,7];
+        PresMatLoc=[0,1,-1,0,0,-1,1,0];
+    }
+else {
+    DOFl=[0,4,10, 1,5,8, 2,6,11, 3,7,9];
+    PresMatLoc=[0,1,0, -1,0,0, 0,-1,0, 1,0,0 ];
+}
+int NDOFu=FBedge*( (nx+1)*ny+(ny+1)*nx );
+real[int] uH(NDOFu), pH(nx*ny);
+real[int,int] arrH(nx*ny,1);
+matrix B, B0x, B0y, Bpx, Bpy, St;
+{
+    int Annz=0, Annzmax=FBedge*FBedge*nx*ny*18;
+    int[int] AImat(Annzmax), AJmat(Annzmax);
+    real[int] Amat(Annzmax);
+    int Bnnz=0, Bnnzmax=FBedge*FBedge*nx*ny*2;
+    int[int] BImat(Bnnzmax), BJmat(Bnnzmax);
+    real[int] Bmat(Bnnzmax);
+    macro AddEntry(a,i,j,m)
+    {
+        a#Imat[a#nnz]=i;
+        a#Jmat[a#nnz]=j;
+        a#mat[a#nnz]=m;
+        a#nnz++;
+    } //
+    macro AddEntryBoundary(i,num, vert)
+    {
+        AddEntry(A,i,i,tgv);
+        AddEntry(A,i+1,i+1,tgv);
+        b[i]=tgv*int1d(K,num)(gx);
+        b[i+1]=tgv*int1d(K,num)(gy);
+        if (FBedge>2)
+        {
+            AddEntry(A,i+2,i+2,tgv);
+            if (vert)
+                b[i+2]=tgv*int1d(K,num)(gx*((y-Y0)/Hy-0.5));
+            else
+                b[i+2]=tgv*int1d(K,num)(gy*((x-X0)/Hx-0.5));
+        }
+    } //
+
+
+
+    real[int] b(NDOFu); b=0;
+
+    for(int i=0;i<nx;i++)
+        for(int j=0;j<ny;j++)
+        {
+            cout <<"construction fct base i="<<i<<"   j="<<j<<endl;
+
+            if (i>0 || j>0)
+            {
+                K=movemesh(K,[x+Hx*i-X0,y+Hy*j-Y0]);
+                X0=Hx*i; Y0=Hy*j;
+            }
+
+            ZK Hole=bat;
+            ZK hole=Hole>0;
+            ZK nu=1+(1/delta-1)*hole;
+            ZK sig=1/delta/La/La*hole;
+
+
+            varf pb(uh,vh)=int2d(K)(a(uh,vh,nu, sig ));
+            matrix A=pb(VK,VK);
+            if (i==0 && j==0) {
+                real[int,int] arrB(VK.ndof,4), arrBx(VK.ndof,2), arrBy(VK.ndof,2);
+                varf Gam0(unused,vh)=int1d(K,1)(vh);
+                arrB(:,0)=Gam0(0,VK);
+                varf Gam1(unused,vh)=int1d(K,2)(vh);
+                arrB(:,1)=Gam1(0,VK);
+                varf Gam2(unused,vh)=int1d(K,3)(vh);
+                arrB(:,2)=Gam2(0,VK);
+                varf Gam3(unused,vh)=int1d(K,4)(vh);
+                arrB(:,3)=Gam3(0,VK);
+                B=arrB;
+
+                varf Gam0lin(unused,vh)=int1d(K,1)(vh*(x/Hx-0.5));
+                arrBy(:,0)=Gam0lin(0,VK);
+                varf Gam1lin(unused,vh)=int1d(K,2)(vh*(y/Hy-0.5));
+                arrBx(:,0)=Gam1lin(0,VK);
+                varf Gam2lin(unused,vh)=int1d(K,3)(vh*(x/Hx-0.5));
+                arrBy(:,1)=Gam2lin(0,VK);
+                varf Gam3lin(unused,vh)=int1d(K,4)(vh*(y/Hy-0.5));
+                arrBx(:,1)=Gam3lin(0,VK);
+                B0x=arrBx; B0y=arrBy;
+
+                varf presx(p,v)=int2d(K)(-dx(v)*p);
+                varf presy(p,v)=int2d(K)(-dy(v)*p);
+                Bpx=presx(PK,VK);
+                Bpy=presy(PK,VK);
+
+                varf Stab(ph, qh) = int2d(K)(-1e-10*ph*qh-stabtheta*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
+                St = Stab(PK, PK);
+
+            }
+
+            matrix C;
+            if (FBedge==2)
+                C = [[ A,     0,     Bpx,  B,  0 ],
+                  [ 0,     A,     Bpy,  0,  B ],
+                  [ Bpx',  Bpy',  St,   0,  0 ],
+                  [ B',    0,     0,    0,  0 ],
+                  [ 0,     B',    0,    0,  0 ]];
+            else
+                C = [[ A,     0,     Bpx,  B,  0,  B0x,  0  ],
+                  [ 0,     A,     Bpy,  0,  B,  0,    B0y],
+                  [ Bpx',  Bpy',  St,   0,  0,  0,    0  ],
+                  [ B',    0,     0,    0,  0,  0,    0  ],
+                  [ 0,     B',    0,    0,  0,  0,    0  ],
+                  [ B0x',  0,     0,    0,  0,  0,    0  ],
+                  [ 0,     B0y',  0,    0,  0,  0,    0  ]];
+            set(C, solver=sparsesolver);
+
+            DOFg[FBedge*3]=FBedge*( i*ny+j );
+            DOFg[FBedge*1]=FBedge*( (i+1)*ny+j );
+            DOFg[FBedge*0]=FBedge*( (nx+1)*ny + j*nx+i );
+            DOFg[FBedge*2]=FBedge*( (nx+1)*ny + (j+1)*nx+i );
+            for(int s=0; s<4; s++)
+                for(int t=0; t<FBedge-1; t++)
+                    DOFg(FBedge*s+t+1)=DOFg(FBedge*s+t)+1;
+            for(int s=0; s<FBedge*4; s++) DOFr[DOFl[s]]=DOFg[s];
+
+            int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
+            real[int] X(Ndof+Nlam), F(Ndof+Nlam), lam(Nlam); F=0;
+            real[int,int] Lam(Nlam,Nlam);
+
+            VK ux, uy;
+            PK p;
+            for(int s=0; s<FBedge*4; s++) {
+                F[Ndof+s]=1;
+                X=C^-1*F;
+                [ux[],uy[],p[],lam]=X;
+                Lam(s,:)=lam;
+                F[Ndof+s]=0;
+                b[DOFr[s]]+=int2d(K)(fx*ux+fy*uy);
+            }
+
+            for(int s=0; s<4*FBedge; s++)
+                for(int t=0; t<4*FBedge; t++)
+                    AddEntry(A,DOFr[s], DOFr[t], -Lam(s,t));
+            if (i==0)   	AddEntryBoundary(DOFg[FBedge*3], 4, 1);
+            if (i==nx-1) AddEntryBoundary(DOFg[FBedge*1], 2, 1);
+            if (j==0)    AddEntryBoundary(DOFg[FBedge*0], 1, 0);
+            if (j==ny-1) AddEntryBoundary(DOFg[FBedge*2], 3, 0);
+
+            for(int s=0; s<4*FBedge; s++)
+                AddEntry(B,DOFg[s], i*ny+j, PresMatLoc[s]);
+            arrH(i*ny+j,0)=int2d(K)(1-hole);
+        }
+
+    matrix AA=[AImat(0:Annz-1), AJmat(0:Annz-1), Amat(0:Annz-1)];
+    matrix BB=[BImat(0:Bnnz-1), BJmat(0:Bnnz-1), Bmat(0:Bnnz-1)];
+    matrix PP=arrH;
+    cout <<"BB "<<BB.n<<" X "<<BB.m<<endl;
+    cout <<"PP "<<PP.n<<" X "<<PP.m<<endl;
+    matrix CC=[[AA,BB,0],
+           [BB',0,PP],
+           [0,PP',0]];
+    set(CC, solver=sparsesolver);
+    cout <<"CC done"<<endl;
+    real[int] bH(NDOFu+nx*ny+1), XX(NDOFu+nx*ny+1); bH=0;
+    bH(0:NDOFu-1)=b;
+    XX=CC^-1*bH;
+    real pavg;
+    [uH,pH,pavg]=XX;
+    pavg=0;
+    for(int k=0; k<nx*ny; k++)   pavg+=pH[k]*arrH(k,0);
+    cout <<"pavg "<<pavg<<endl;
+
+
+    ofstream ff(config+"_CR"+FBedge+"_Nx"+Nx+"_Ny"+Ny+"_nx"+nx+"_ny"+ny+".dat");
+    ff <<uH<<endl<<pH<<endl;
+}
+
+
+mesh Th=square(Nx,Ny,[Lx*x,Ly*y]);
+fespace Vh(Th,P1);
+Vh Ux=0, Uy=0, Avg=0, P;
+
+real[int] ones(cx+1);
+for(int k=0; k<=cx; k++) ones[k]=1;
+for(int i=0;i<nx;i++)
+for(int j=0;j<ny;j++)
+for(int k=0; k<=cy; k++)
+{
+    int Glob=i*cx+(j*cy+k)*(Nx+1);
+    Avg[](Glob:Glob+cx)=Avg[](Glob:Glob+cx)+ones;
+}
+
+
+Vh Uxref, Uyref, Pref;
+real nL2=1, nH1=1, nEn=1, nmax=1, nP=1;
+try {
+    cout << "Loading reference data file..." <<endl;
+    ifstream ff(config+"_REF_Nx"+Nx+"_Ny"+Ny+".dat");
+    ff >>Uxref[]>>Uyref[]>>Pref[];
+    ff >>nL2>>nH1>>nEn>>nmax>>nP;
+}
+catch(...) {
+    cout <<endl<<"WARNING : no reference solution"<<endl;
+    Uxref=1; Uyref=1; Pref=1;
+}
+
+real eL2=0, eH1=0, eEn=0, emax=0, eP=0, eP0=0;
+
+for(int i=0;i<nx;i++)
+for(int j=0;j<ny;j++)
+{
+    cout <<"construction solution i="<<i<<"   j="<<j<<endl;
+
+    K=movemesh(K,[x+Hx*i-X0,y+Hy*j-Y0]);
+    X0=Hx*i; Y0=Hy*j;
+    VK ux, uy;
+    PK p;
+
+    PK Hole=bat;
+    ZK hole=Hole>0;
+    ZK nu=1+(1/delta-1)*hole;
+    ZK sig=1/delta/La/La*hole;
+
+    varf pb(uh,vh)=int2d(K)(a(uh,vh,nu,sig ));
+    matrix A=pb(VK,VK);
+    matrix C;
+    if (FBedge==2)
+        C = [[ A,     0,     Bpx,  B,  0 ],
+          [ 0,     A,     Bpy,  0,  B ],
+          [ Bpx',  Bpy',  St,   0,  0 ],
+          [ B',    0,     0,    0,  0 ],
+          [ 0,     B',    0,    0,  0 ]];
+    else
+        C = [[ A,     0,     Bpx,  B,  0,  B0x,  0  ],
+          [ 0,     A,     Bpy,  0,  B,  0,    B0y],
+          [ Bpx',  Bpy',  St,   0,  0,  0,    0  ],
+          [ B',    0,     0,    0,  0,  0,    0  ],
+          [ 0,     B',    0,    0,  0,  0,    0  ],
+          [ B0x',  0,     0,    0,  0,  0,    0  ],
+          [ 0,     B0y',  0,    0,  0,  0,    0  ]];
+    set(C, solver=sparsesolver);
+
+    DOFg[FBedge*3]=FBedge*( i*ny+j );
+    DOFg[FBedge*1]=FBedge*( (i+1)*ny+j );
+    DOFg[FBedge*0]=FBedge*( (nx+1)*ny + j*nx+i );
+    DOFg[FBedge*2]=FBedge*( (nx+1)*ny + (j+1)*nx+i );
+    for(int s=0; s<4; s++)
+        for(int t=0; t<FBedge-1; t++)
+            DOFg(FBedge*s+t+1)=DOFg(FBedge*s+t)+1;
+
+    int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
+    real[int] X(Ndof+Nlam), F(Ndof+Nlam), lam(Nlam); F=0;
+    for(int s=0; s<FBedge*4; s++) F[Ndof+DOFl[s]]=uH[DOFg[s]];
+    X=C^-1*F;
+    [ux[],uy[],p[],lam]=X;
+    real arF=int2d(K)(1-hole);
+    if (arF>1e-10) {
+        real pavg=pH[i*ny+j]-int2d(K)(p*(1-hole))/arF;
+        p=p+pavg;
+    }
+
+    for(int k=0; k<=cy; k++)
+    {
+        int Glob=i*cx+(j*cy+k)*(Nx+1), Loc=k*(cx+1);
+        Ux[](Glob:Glob+cx)=Ux[](Glob:Glob+cx)+ux[](Loc:Loc+cx);
+        Uy[](Glob:Glob+cx)=Uy[](Glob:Glob+cx)+uy[](Loc:Loc+cx);
+        P[](Glob:Glob+cx)=P[](Glob:Glob+cx)+p[](Loc:Loc+cx);
+    }
+    //plot(ux, value=1, wait=1);
+    //plot(Ux, value=1, wait=1);
+
+    VK ex=ux-Uxref, ey=uy-Uyref, ep=p-Pref;
+    //VK prefloc=Pref;
+    //plot(prefloc,value=1,wait=1,cmm=i+" "+j+" pref");
+    //plot(p,value=1,wait=1,cmm=i+" "+j+" p "+pH[i*ny+j]);
+    eL2+=int2d(K)((square(ex)+square(ey))*(1-hole));
+    eH1+=int2d(K)((square(dx(ex))+square(dy(ex))+square(dx(ey))+square(dy(ey)))*(1-hole));
+    eEn+=int2d(K)(a(ex,ex,nu,sig)+a(ey,ey,nu,sig));
+    ex=abs(ex);   ey=abs(ey);
+    emax=max( emax, max(ex[].max, ey[].max) );
+    eP+=int2d(K)(square(ep)*(1-hole));
+    ep=pH[i*ny+j]-Pref;
+    eP0+=int2d(K)(square(ep)*(1-hole));
+}
+Ux[]=Ux[]./Avg[]; Uy[]=Uy[]./Avg[]; P[]=P[]./Avg[];
+plot(Uxref,wait=1,value=1,fill=1);
+plot(Uyref,wait=1,value=1,fill=1);
+plot(Pref,wait=1,value=1,fill=1);
+
+plot(Ux,wait=0,value=1,fill=1,ps="ux"+nx+"CR"+FBedge+".ps");
+plot(Uy,wait=0,value=1,fill=1,ps="uy"+nx+"CR"+FBedge+".ps");
+plot(P,wait=0,value=1,fill=1);
+
+Vh ex=Ux-Uxref, ey=Uy-Uyref;
+plot(ex,wait=0,value=1,ps="ex"+nx+"CR"+FBedge+".ps");
+plot(ey,wait=0,value=1,ps="ey"+nx+"CR"+FBedge+".ps");
+
+eL2=sqrt(eL2);
+cout <<"err L2 "<<eL2<<endl;
+eH1=sqrt(eH1);
+cout <<"err H1 "<<eH1<<endl;
+eEn=sqrt(eEn);
+cout <<"err ene "<<eEn<<endl;
+cout <<"err max "<<emax<<endl;
+eP=sqrt(eP);
+cout <<"err P "<<eP<<endl;
+eP0=sqrt(eP0);
+cout <<"err P avg "<<eP0<<endl;
+
+fres<<Lx/nx
+<<"   "<<eL2<<"   "<<eH1<<"   "<<eEn<<"   "<<emax<<"   "<<eP<<"   "<<eP0
+<<"   "<<eL2/nL2<<"   "<<eH1/nH1<<"   "<<eEn/nEn<<"   "<<emax/nmax<<"   "<<eP/nP<<"   "<<eP0/nP
+<<endl;
+

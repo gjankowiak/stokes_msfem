@@ -1,0 +1,15 @@
+func int savetofolder() {
+    cout << "Saving results..." << endl;
+
+    ofstream Uxf("ux.dat");
+    ofstream Uyf("uy.dat");
+    ofstream pf("p.dat");
+
+    Uxf << Ux[];
+    Uyf << Uy[];
+    pf << gp[];
+
+    cout << "done." << endl;
+
+    return 0;
+}

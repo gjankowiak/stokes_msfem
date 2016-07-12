@@ -1,0 +1,30 @@
+mesh Th = square(Nx,Ny,[Lx*x,Ly*y]);
+
+cout << "Building meshes" << endl;
+mesh K=square(cx,cy,[Hx*x, Hy*y]);
+mesh M=emptymesh(K);
+mesh MC = square(nx, ny, [Lx*x, Ly*y]);
+
+cout << "Building function spaces" << endl;
+fespace Vh(Th,P1);
+fespace Wh(Th,P1);
+
+fespace VK(K,P1);
+fespace PK(K,P1);
+fespace VM(M,P1);
+
+fespace VC(MC, P0);
+
+cout << "done with both" << endl;
+
+Vh bath, nuh=1, sigh;
+
+real shiftX=0, shiftY=0;
+func X=x+shiftX;
+func Y=y+shiftY;
+
+string maskpath;
+maskpath = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/masks/" + config + "/" + Nf + ".dat";
+ifstream maskfile(maskpath);
+maskfile >> bath[];
+

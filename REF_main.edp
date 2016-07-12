@@ -1,0 +1,19 @@
+verbosity = 1;
+
+include "mpi.edp"
+
+include "params.edp"
+
+include "utils.edp"
+
+load "MUMPS_FreeFem"
+//load "SuperLu"
+
+include "defs.edp"
+include "bcs.edp"
+
+include "REF_compute.edp"
+
+include "save.edp"
+
+savetofolder();

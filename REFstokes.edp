@@ -1,0 +1,52 @@
+include "params.edp"
+load "MUMPS" 
+
+mesh Th=square(Nx,Ny,[Lx*x/2,Ly*y/2]);
+
+fespace Uh(Th,P1); Uh u,v,uu,vv;
+fespace Ph(Th,P1);  Ph p,pp;
+fespace Zh(Th,P0);  
+
+// func nu=1+(1/delta-1)*bat; 
+// func sig=1/delta/La/La*bat;
+Zh hole=bat;
+Zh nu=1+(1/delta-1)*hole; 
+Zh sig=1/delta/La/La*hole;
+
+macro a(u,v) (dx(u)*dx(v)*nu+dy(u)*dy(v)*nu+u*v*sig) //
+
+solve stokes([u,v,p],[uu,vv,pp], solver=sparsesolver, sparams="nprow=1, npcol="+mpisize) =
+    int2d(Th)(a(u,uu)+ a(v,vv)
+            - p*(dx(uu)+dy(vv)) - pp*(dx(u)+dy(v))
+	    -stabtheta*(dx(p)*dx(pp)+dy(p)*dy(pp)) 
+            -1e-12*p*pp )
+	-int2d(Th)(fx*uu+fy*vv)         
+            + on(1,2,3,4,u=gx,v=gy);
+
+//if (mpirank==0) {
+real pavg=int2d(Th)(p*(1-hole))/int2d(Th)(1-hole);
+p=p-pavg;
+            
+plot(hole,wait=1, fill=1, ps="obst.ps");
+plot(u,wait=1,value=1, fill=1, ps="uxref.ps");
+plot(v,wait=1,value=1, fill=1, ps="uyref.ps");
+plot(p,wait=1,value=1,fill=1, ps="pref.ps");
+//plot([u,v],p,wait=1);
+
+ofstream ff(config+"_REF_Nx"+Nx+"_Ny"+Ny+".dat");
+ff <<u[]<<endl<<v[]<<endl<<p[]<<endl;
+
+real eL2,eH1,eEn,emax,eP;
+eL2=sqrt(int2d(Th)((u*u+v*v)*(1-hole)));
+cout <<"norm L2 "<<eL2<<endl;
+eH1=sqrt(int2d(Th)((dx(u)*dx(u)+dy(u)*dy(u)+dx(v)*dx(v)+dy(v)*dy(v))*(1-hole)));
+cout <<"norm H1 "<<eH1<<endl;
+eEn=sqrt(int2d(Th)(a(u,u)+a(v,v)));
+cout <<"norm en "<<eEn<<endl;
+u=abs(u); v=abs(v);
+emax=max(u[].max, v[].max);
+cout <<"norm max "<<emax<<endl;
+eP=sqrt(int2d(Th)(p*p*(1-hole)));
+cout <<"norm L2 p "<<eP<<endl;
+
+ff<<eL2<<"   "<<eH1<<"   "<<eEn<<"   "<<emax<<"   "<<eP<<endl;

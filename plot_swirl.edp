@@ -1,0 +1,32 @@
+bool mpi=false;
+bool plotting=true;
+bool ismaster=false;
+
+include "params_swirl.edp"
+include "defs_swirl.edp"
+
+Wh UxCR, UyCR;
+Vh PCR;
+
+{
+    string uxfilename = "ux.dat";
+    string uyfilename = "uy.dat";
+    string pfilename = "p.dat";
+
+    ifstream uxfile(uxfilename);
+    ifstream uyfile(uyfilename);
+    ifstream pfile(pfilename);
+
+    uxfile >> UxCR[];
+    uyfile >> UyCR[];
+    pfile  >> PCR[];
+
+    plot(UxCR, fill=1, wait=1, nbiso=100, cmm="x velocity");
+    plot(UyCR, fill=1, wait=1, nbiso=100, cmm="y velocity");
+    plot(PCR, fill=1, wait=1,  nbiso=100, cmm="pressure");
+    plot([UxCR, UyCR], wait=1, cmm="velocity");
+
+    UxCR = fx;
+    UyCR = fy;
+    plot([UxCR, UyCR], wait=1, cmm="force");
+}

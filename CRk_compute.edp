@@ -1,0 +1,557 @@
+macro a(u,v,nu,sigma) (dx(u)*dx(v)*nu+dy(u)*dy(v)*nu+u*v*sigma) //
+
+/* DOFg maps edge grouped local function index (EGLFI) to global edge index (GEI)*/
+int[int] DOFg(4*FBedge), DOFr(4*FBedge);
+
+/* DOFl maps EGLFI to constraint grouped local function index (CGLFI)*/
+int[int] DOFl;
+
+if (FBedge == 2)
+    DOFl=[0,4, 1,5, 2,6, 3,7];
+else
+    DOFl=[0,4,10, 1,5,8, 2,6,11, 3,7,9];
+    /*DOFl=[0,4,8, 1,5,9, 2,6,10, 3,7,11];*/
+
+/* Blocked edge flags*/
+int[int] blockededges(4);
+
+/* Net influx for each basis function (EGLFI)*/
+real[int] FuncFlux;
+if (FBedge == 2)
+    FuncFlux = [0,1, -1,0, 0,-1, 1,0 ];
+else
+    FuncFlux = [0,1,0, -1,0,0, 0,-1,0, 1,0,0 ];
+
+/* Degrees of freedom for whole domain velocity*/
+
+int NDOFu=FBedge*( (nx+1)*ny+(ny+1)*nx );
+
+/* Matrices associated to linear and bilinear terms in weak formulation*/
+matrix B, B0x, B0y, Bpx, Bpy, St, PP;
+
+/* MsFEM coefficients*/
+real[int] uH(NDOFu), pH(nx*ny);
+
+/* Lagrange multiplier associated to pressure*/
+real[int] lamp(1);
+
+/* Total numbers of computed functions (4*FBedge per cell)*/
+real ncomputedfuncs = 4*FBedge*nx*ny;
+
+ofstream bf1("boundary1.txt");
+
+/* Arrays to store min and max values of basis functions + pressure*/
+real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
+          uymin(ncomputedfuncs), uymax(ncomputedfuncs),
+          pmin(ncomputedfuncs),  pmax(ncomputedfuncs);
+
+{
+    /* Finite element matrix*/
+    int Annz=0, Annzmax=FBedge*FBedge*nx*ny*18;
+    int[int] AImat(Annzmax), AJmat(Annzmax);
+    real[int] Amat(Annzmax);
+
+    /* Finite element RHS*/
+    int Bnnz=0, Bnnzmax=FBedge*FBedge*nx*ny*2;
+    int[int] BImat(Bnnzmax), BJmat(Bnnzmax);
+    real[int] Bmat(Bnnzmax);
+
+
+    /* Macro to *add* to components of the FEM matrix*/
+    macro AddEntry(a,i,j,m)
+    {
+        a#Imat[a#nnz]=i;
+        a#Jmat[a#nnz]=j;
+        a#mat[a#nnz]=m;
+        a#nnz++;
+    } //
+
+    /* Macro to *add* boundary terms to the FEM matrix and RHS*/
+    macro AddEntryBoundary(i,num, vert)
+    {
+        AddEntry(A,i,i,tgv);
+        AddEntry(A,i+1,i+1,tgv);
+        b[i]=tgv*int1d(K,num)(gx);
+        b[i+1]=tgv*int1d(K,num)(gy);
+
+        bf1 << b[i] << "," << b[i+1];
+
+        if (FBedge == 3)
+        {
+            AddEntry(A,i+2,i+2,tgv);
+            if (vert)
+                b[i+2]=tgv*int1d(K,num)(gx*(y/Hy-0.5));
+            else
+                b[i+2]=tgv*int1d(K,num)(gy*(x/Hx-0.5));
+            bf1 << "," << b[i+2];
+        }
+        bf1 << endl;
+    } //
+
+
+
+    real[int] b(NDOFu); b=0;
+
+    /* Cell velocities and pressure*/
+    VK ux, uy;
+
+    /* Global pressure*/
+    PK p;
+
+    /* Map of blocked cells*/
+    VC blockedh;
+
+    /* For each cell, build the correponding part of the basis functions*/
+    for(int i=0;i<nx;i++)
+    {
+        for(int j=0;j<ny;j++)
+        {
+            cout <<"construction fct base i="<<i<<"   j="<<j<<endl;
+
+            /* Shift coordinates and project PDE coefficients
+               on a "local" mesh */
+            shiftX=Hx*i; shiftY=Hy*j;
+
+            mesh Kij=square(cx,cy,[i*Hx+Hx*x,j*Hy+Hy*y], flags=flag);
+            fespace Vij(Kij,P1);
+            Vij localnuh, localsigh, localbath;
+            VK lnuh, lsigh;
+            localnuh  = nuh;
+            localsigh = sigh;
+            localbath = bath;
+            lnuh[] = localnuh[];
+            lsigh[] = localsigh[];
+
+            /* Determine which edges are blocked and flag them*/
+            real H, blockedpercentage;
+            for (int ed=0; ed<4; ed++) {
+                /* H is the length of the edge, it depends on
+                   the edge being horizontal or vertical */
+                H = (ed & 1) ? Hy : Hx;
+
+                blockedpercentage = int1d(Kij, ed+1)(localbath)/H;
+                blockededges[ed] = (blockedpercentage > min(1.0, maxobstr));
+                if (blockededges[ed]) {
+                    cout << "EDGE " << i << ", " << j << ", " << ed+1;
+                    cout << " BLOCKED! (" << blockedpercentage << "% obstructed)" << endl;
+                    /* update the blocked edge map, each cell is made of 2 triangles
+                       hence the 2 values to set */
+                    blockedh[](2*(i*ny+j)) = 1;
+                    blockedh[](2*(i*ny+j)+1) = 1;
+                }
+            }
+
+            /* Define the Stokes variationnal form*/
+            varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
+            varf RHSp(unused, qh) = int2d(K)( stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
+            matrix A=pb(VK,VK);
+
+            /* Define the linear forms associated to constraints
+               and do it only for the first cell */
+            if (i==0 && j==0) {
+
+                /* ∫_e u_x ds and ∫_e u_y ds*/
+                real[int,int] arrB(VK.ndof,4), arrBx(VK.ndof,2), arrBy(VK.ndof,2);
+                varf Gam0(unused,vh)=int1d(K,1)(vh);
+                arrB(:,0)=Gam0(0,VK);
+                varf Gam1(unused,vh)=int1d(K,2)(vh);
+                arrB(:,1)=Gam1(0,VK);
+                varf Gam2(unused,vh)=int1d(K,3)(vh);
+                arrB(:,2)=Gam2(0,VK);
+                varf Gam3(unused,vh)=int1d(K,4)(vh);
+                arrB(:,3)=Gam3(0,VK);
+                B=arrB;
+
+                /* ∫_e u·n x ds*/
+                varf Gam0lin(unused,vh)=int1d(K,1)(vh*(x/Hx-0.5));
+                arrBy(:,0)=Gam0lin(0,VK);
+                varf Gam1lin(unused,vh)=int1d(K,2)(vh*(y/Hy-0.5));
+                arrBx(:,0)=Gam1lin(0,VK);
+                varf Gam2lin(unused,vh)=int1d(K,3)(vh*(x/Hx-0.5));
+                arrBy(:,1)=Gam2lin(0,VK);
+                varf Gam3lin(unused,vh)=int1d(K,4)(vh*(y/Hy-0.5));
+                arrBx(:,1)=Gam3lin(0,VK);
+                B0x=arrBx; B0y=arrBy;
+
+                /* ∫_Ω ∇·v p dx*/
+                varf presx(p,v)=int2d(K)( dx(v)*p);
+                varf presy(p,v)=int2d(K)( dy(v)*p);
+                Bpx=presx(PK,VK);
+                Bpy=presy(PK,VK);
+
+                /* Pressure is defined up to an additive constant
+                   There are at least 2 ways to deal with that problem */
+                if (!penalpressure)
+                {
+                    /* Require that ∫_Ω p = 0*/
+                    real[int,int] arrP(PK.ndof,1);
+                    varf pres0(unused,q)=int2d(K)(q);
+                    arrP(:,0)=pres0(0,PK);
+                    PP=arrP;
+                    varf Stab(ph, qh) = int2d(K)( stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
+                    St = Stab(PK, PK);
+                } else {
+                    /* Or add a small penalization term for the pressure
+                       ∫_Ω pq dx (see FreeFem++ manual, no joke) */
+                    varf Stab(ph, qh) = int2d(K)(1e-12*ph*qh+stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
+                    St = Stab(PK, PK);
+                }
+            }
+
+            cout << "assembling FEM matrix..." << endl;
+
+            matrix C;
+
+            /* Assemble the FEM matrix, depending on which method we want to use
+               (CR2 or 3, with pressure penalization or not) */
+            if (FBedge == 2)
+            {
+                if (!penalpressure)
+                {
+                    C = [[ A,     0,     Bpx,  B,  0, 0  ],
+                         [ 0,     A,     Bpy,  0,  B, 0  ],
+                         [ Bpx',  Bpy',  St,   0,  0, PP ],
+                         [ B',    0,     0,    0,  0, 0  ],
+                         [ 0,     B',    0,    0,  0, 0  ],
+                         [ 0,     0,     PP',  0,  0, 0  ]];
+                } else {
+                    C = [[ A,     0,     Bpx,  B,  0 ],
+                         [ 0,     A,     Bpy,  0,  B ],
+                         [ Bpx',  Bpy',  St,   0,  0 ],
+                         [ B',    0,     0,    0,  0 ],
+                         [ 0,     B',    0,    0,  0 ]];
+                }
+            } else {
+                if (!penalpressure)
+                {
+                    C = [[ A,     0,     Bpx,  B,  0,  B0x,  0,   0  ],
+                         [ 0,     A,     Bpy,  0,  B,  0,    B0y, 0  ],
+                         [ Bpx',  Bpy',  St,   0,  0,  0,    0,   PP ],
+                         [ B',    0,     0,    0,  0,  0,    0,   0  ],
+                         [ 0,     B',    0,    0,  0,  0,    0,   0  ],
+                         [ B0x',  0,     0,    0,  0,  0,    0,   0  ],
+                         [ 0,     B0y',  0,    0,  0,  0,    0,   0  ],
+                         [ 0,     0,     PP',  0,  0,  0,    0,   0  ]];
+                } else {
+                    C = [[ A,     0,     Bpx,  B,  0,  B0x,  0  ],
+                         [ 0,     A,     Bpy,  0,  B,  0,    B0y],
+                         [ Bpx',  Bpy',  St,   0,  0,  0,    0  ],
+                         [ B',    0,     0,    0,  0,  0,    0  ],
+                         [ 0,     B',    0,    0,  0,  0,    0  ],
+                         [ B0x',  0,     0,    0,  0,  0,    0  ],
+                         [ 0,     B0y',  0,    0,  0,  0,    0  ]];
+                }
+            }
+            cout << "done" << endl;
+
+            defaulttoMUMPS();
+            //realdefaulttoSuperLUdist();
+            set(C, solver=sparsesolver, master=0);
+
+            /* Map each function we compute on a cell to the corresponding edge*/
+            DOFg[FBedge*3]=FBedge*( i*ny+j );
+            DOFg[FBedge*1]=FBedge*( (i+1)*ny+j );
+            DOFg[FBedge*0]=FBedge*( (nx+1)*ny + j*nx+i );
+            DOFg[FBedge*2]=FBedge*( (nx+1)*ny + (j+1)*nx+i );
+            for(int s=0; s<4; s++)
+                for(int t=0; t<FBedge-1; t++)
+                    DOFg(FBedge*s+t+1)=DOFg(FBedge*s+t)+1;
+
+            for(int s=0; s<FBedge*4; s++)
+                DOFr[DOFl[s]]=DOFg[s];
+
+            int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
+            real[int] X(Ndof+Nlam+1-penalpressure), F(Ndof+Nlam+1-penalpressure), lam(Nlam); F=0;
+            real[int,int] Lam(Nlam,Nlam);
+
+            /* Solve the cell problem*/
+            for(int s=0; s<FBedge*4; s++) {
+                int edge = s % 4;
+                /* If the correponding edge is blocked, set the function to 0*/
+                if (blockededges[edge]) {
+                    ux = 0;
+                    uy = 0;
+                    p  = 0;
+                    lam = 0;
+                    lamp = 0;
+                } else {
+                    /* Otherwise, solve happily*/
+                    F[Ndof+s]=1;
+                    X=C^-1*F;
+                    if (!penalpressure) {
+                        [ux[],uy[],p[],lam,lamp]=X;
+                    } else {
+                        [ux[],uy[],p[],lam]=X;
+                    }
+                }
+                Lam(s,:)=lam;
+                F[Ndof+s]=0;
+
+                /* Add the contribution of the source term to the MsFEM RHS*/
+                b[DOFr[s]]+=int2d(K)(fx*ux+fy*uy);
+
+                /* Store some metrics about the functions we compute, for debugging*/
+                uxmin[s + 4*FBedge*(j+ny*i)] = ux[].min;
+                uxmax[s + 4*FBedge*(j+ny*i)] = ux[].max;
+                uymin[s + 4*FBedge*(j+ny*i)] = uy[].min;
+                uymax[s + 4*FBedge*(j+ny*i)] = uy[].max;
+                pmin[s + 4*FBedge*(j+ny*i)] = p[].min;
+                pmax[s + 4*FBedge*(j+ny*i)] = p[].max;
+            }
+
+            /* Build the Stokes part of the MsFEM matrix*/
+            for(int s=0; s<4*FBedge; s++) {
+                if (blockededges[s % FBedge]) {
+                        AddEntry(A,DOFr[s], DOFr[s], tgv);
+                } else {
+                    for(int t=0; t<4*FBedge; t++)
+                        AddEntry(A,DOFr[s], DOFr[t], -Lam(s,t));
+                }
+            }
+
+            /* Add boundary conditions using huge values on the diagonal*/
+            if (i==0    && !blockededges[3]) AddEntryBoundary(DOFg[FBedge*3], 4, 1);
+            if (i==nx-1 && !blockededges[1]) AddEntryBoundary(DOFg[FBedge*1], 2, 1);
+            if (j==0    && !blockededges[0]) AddEntryBoundary(DOFg[FBedge*0], 1, 0);
+            if (j==ny-1 && !blockededges[2]) AddEntryBoundary(DOFg[FBedge*2], 3, 0);
+
+            /* Build the divergence free part of the MsFEM matrix*/
+            {
+                for(int s=0; s<4*FBedge; s++) {
+                    if (blockededges[s % FBedge]) continue;
+                    AddEntry(B,DOFg[s], i*ny+j, FuncFlux[s]);
+                }
+            }
+        }
+    }
+
+    /* Assemble the MsFEM matrix*/
+    matrix AA=[AImat(0:Annz-1), AJmat(0:Annz-1), Amat(0:Annz-1)];
+    matrix BB=[BImat(0:Bnnz-1), BJmat(0:Bnnz-1), Bmat(0:Bnnz-1)];
+    BB.resize(NDOFu,nx*ny);
+
+    /* The average of the coarse pressure should be 0 so
+       we build the associated constraint */
+    real[int,int] CPlinform(nx*ny,1);
+    CPlinform(0:nx*ny-1,0) = 1;
+
+    matrix CPmat = CPlinform;
+    matrix CC=[[AA, BB,    0    ],
+               [BB', 0,     CPmat],
+               [0,  CPmat', 0    ]];
+
+    cout << "##########################" << endl;
+    cout << "#       MsFEM solve      #" << endl;
+    cout << "##########################" << endl;
+
+    //defaulttoMUMPS();
+    realdefaulttoSuperLUdist();
+    set(CC, solver=sparsesolver, master=0);
+
+    /* Assemble the MsFEM RHS*/
+    real[int] bH(NDOFu+nx*ny+1), XX(NDOFu+nx*ny+1); bH=0;
+    real lampp;
+    bH(0:NDOFu-1)=b;
+
+    {
+        ofstream msfema("msfem_a.txt");
+        ofstream msfemb("msfem_b.txt");
+
+        msfema << CC;
+        msfemb << bH;
+    }
+
+    /* Solve the MsFEM problem*/
+    XX=CC^-1*bH;
+    [uH,pH,lampp]=XX;
+    {
+        ofstream msfemx("msfem_x.txt");
+        msfemx << XX;
+    }
+
+    if (ny<=JL) {
+
+        int errcode = exec("/home/gjankowiak/tmp/julia-0.4.2/julia -p 5 ../../juliasolve.jl msfem_a.txt msfem_b.txt msfem_x_julia.txt");
+        cout << "MsFEM Julia solve errcode: " << errcode << endl;
+
+        ifstream msfemxjulia("msfem_x_julia.txt");
+        msfemxjulia >> XX;
+        [uH,pH,lampp]=XX;
+
+    }
+
+    cout << "##########################" << endl;
+    cout << "#    End MsFEM solve     #" << endl;
+    cout << "##########################" << endl;
+
+    /* And save some metrix*/
+    ofstream uhf("uH.txt");
+    ofstream uxminf("uxmin.txt");
+    ofstream uxmaxf("uxmax.txt");
+    ofstream uyminf("uymin.txt");
+    ofstream uymaxf("uymax.txt");
+    ofstream pminf("pmin.txt");
+    ofstream pmaxf("pmax.txt");
+
+    uhf << uH;
+    uxminf << uxmin;
+    uxmaxf << uxmax;
+    uyminf << uymin;
+    pminf << pmin;
+    pmaxf << pmax;
+
+    ofstream blockedhf("blocked.txt");
+    blockedhf << blockedh[];
+}
+
+Vh Ux, Uy, rhsx=0, rhsKx, rhsy=0, rhsKy, rhsp=0, rhsKp, Avg;
+Vh gp;
+VC CP;
+CP[] = 0;
+real meancoarsepress;
+
+real[int] ones(cx+1);
+for(int k=0; k<=cx; k++) ones[k]=1;
+for(int i=0;i<nx;i++)
+for(int j=0;j<ny;j++)
+for(int k=0; k<=cy; k++)
+{
+    int Glob=i*cx+(j*cy+k)*(Nx+1);
+    Avg[](Glob:Glob+cx)=Avg[](Glob:Glob+cx)+ones;
+}
+
+/* Reconstruct the coarse pressure as a P0 function*/
+for(int i=0;i<nx;i++)
+    for(int j=0;j<ny;j++)
+        {
+            CP[][2*(i+nx*j)] = pH[i*ny+j];
+            CP[][2*(i+nx*j)+1] = pH[i*ny+j];
+        }
+
+/* Reconstruct the MsFEM solution
+   Do do this, we solve 1 homogeneous Stokes problem on each cell
+   with the part of RHS corresponding to the Lagrange multipliers
+   set to the corresponding values, found during the MsFEM solve above */
+for(int i=0;i<nx;i++)
+{
+    for(int j=0;j<ny;j++)
+    {
+        /* Code copy of what's above, maybe we should factorize*/
+        cout <<"construction solution i="<<i<<"   j="<<j<<endl;
+        VK ux, uy, eh;
+        PK p;
+
+        shiftX=Hx*i; shiftY=Hy*j;
+
+        mesh Kij=square(cx,cy,[i*Hx+Hx*x,j*Hy+Hy*y], flags=flag);
+        fespace Vij(Kij,P1);
+        Vij uij;
+        VK lnuh, lsigh;
+        Vij localnuh, localsigh, localbath;
+        localnuh  = nuh;
+        localsigh = sigh;
+        localbath = bath;
+        lnuh[] = localnuh[];
+        lsigh[] = localsigh[];
+
+        varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
+        varf RHSp(unused, qh) = int2d(K)( stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
+        matrix A=pb(VK,VK);
+        matrix C;
+
+        cout << "assembling" << endl;
+        if (FBedge == 2)
+        {
+            if (!penalpressure)
+            {
+                C = [[ A,     0,     Bpx,  B,  0, 0  ],
+                     [ 0,     A,     Bpy,  0,  B, 0  ],
+                     [ Bpx',  Bpy',  St,   0,  0, PP ],
+                     [ B',    0,     0,    0,  0, 0  ],
+                     [ 0,     B',    0,    0,  0, 0  ],
+                     [ 0,     0,     PP',  0,  0, 0  ]];
+            } else {
+                C = [[ A,     0,     Bpx,  B,  0 ],
+                     [ 0,     A,     Bpy,  0,  B ],
+                     [ Bpx',  Bpy',  St,   0,  0 ],
+                     [ B',    0,     0,    0,  0 ],
+                     [ 0,     B',    0,    0,  0 ]];
+            }
+        } else {
+            if (!penalpressure)
+            {
+                C = [[ A,     0,     Bpx,  B,  0,  B0x,  0,   0  ],
+                     [ 0,     A,     Bpy,  0,  B,  0,    B0y, 0  ],
+                     [ Bpx',  Bpy',  St,   0,  0,  0,    0,   PP ],
+                     [ B',    0,     0,    0,  0,  0,    0,   0  ],
+                     [ 0,     B',    0,    0,  0,  0,    0,   0  ],
+                     [ B0x',  0,     0,    0,  0,  0,    0,   0  ],
+                     [ 0,     B0y',  0,    0,  0,  0,    0,   0  ],
+                     [ 0,     0,     PP',  0,  0,  0,    0,   0  ]];
+            } else {
+                C = [[ A,     0,     Bpx,  B,  0,  B0x,  0  ],
+                     [ 0,     A,     Bpy,  0,  B,  0,    B0y],
+                     [ Bpx',  Bpy',  St,   0,  0,  0,    0  ],
+                     [ B',    0,     0,    0,  0,  0,    0  ],
+                     [ 0,     B',    0,    0,  0,  0,    0  ],
+                     [ B0x',  0,     0,    0,  0,  0,    0  ],
+                     [ 0,     B0y',  0,    0,  0,  0,    0  ]];
+            }
+        }
+
+        cout << "settings solver" << endl;
+        defaulttoMUMPS();
+        //realdefaulttoSuperLUdist();
+        set(C, solver=sparsesolver, master=0);
+
+        cout << "building RHS" << endl;
+        DOFg[FBedge*3]=FBedge*( i*ny+j );
+        DOFg[FBedge*1]=FBedge*( (i+1)*ny+j );
+        DOFg[FBedge*0]=FBedge*( (nx+1)*ny + j*nx+i );
+        DOFg[FBedge*2]=FBedge*( (nx+1)*ny + (j+1)*nx+i );
+        for(int s=0; s<4; s++)
+            for(int t=0; t<FBedge-1; t++)
+                DOFg(FBedge*s+t+1)=DOFg(FBedge*s+t)+1;
+
+        int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
+        real[int] X(Ndof+Nlam+1-penalpressure), F(Ndof+Nlam+1-penalpressure), lam(Nlam); F=0;
+
+        /* End of code copy*/
+
+        /* Basis functions solve a Stokes system with a RHS where only one component is nonzero but 1
+           To reconstruct the MsFEM solution on a given cell, one only needs to solve the Stokes system
+           where the RHS is given by the MsFEM coefficients computed in the 1st loop (uH) */
+        for(int s=0; s<FBedge*4; s++)
+            F[Ndof+DOFl[s]]=uH[DOFg[s]];
+
+        cout << "solving" << endl;
+        X=C^-1*F;
+        if (!penalpressure)
+        {
+            [ux[],uy[],p[],lam,lamp]=X;
+        } else {
+            [ux[],uy[],p[],lam]=X;
+        }
+
+
+        real pavg=pH[i*ny+j]-int2d(K)(p);
+        p=p+pavg;
+
+        for(int k=0; k<=cy; k++)
+        {
+            int Glob=i*cx+(j*cy+k)*(Nx+1), Loc=k*(cx+1);
+            Ux[](Glob:Glob+cx)=Ux[](Glob:Glob+cx)+ux[](Loc:Loc+cx);
+            Uy[](Glob:Glob+cx)=Uy[](Glob:Glob+cx)+uy[](Loc:Loc+cx);
+            gp[](Glob:Glob+cx)=gp[](Glob:Glob+cx)+p[](Loc:Loc+cx);
+        }
+    }
+}
+
+Ux[]=Ux[]./Avg[]; Uy[]=Uy[]./Avg[]; gp[]=gp[]./Avg[];
+
+/* Save the result */
+
+gp = gp;
+
+ofstream cpf("CP.dat");
+cpf << CP[];

@@ -1,0 +1,76 @@
+verbosity=0;
+
+include "utils.edp"
+include "params.edp"
+
+int newn = #n#;
+int aspect = nx/ny;
+n = newn;
+nx = aspect*n; ny = n;
+cx=Nx/nx; cy=Ny/ny; //fine mesh on every coarse cell
+Hx=Lx/nx; Hy=Ly/ny;
+
+cout << "n: " << n << endl;
+
+include "defs.edp"
+
+Wh UxCR, UyCR, UxCRalt, UyCRalt;
+Vh PCR, PCRalt;
+VC CPCR, CPCRalt;
+
+Vh Uerror;
+Vh CPCRerror;
+Vh PCRerror;
+
+
+{
+    string uxfilename = "ux.dat";
+    string uyfilename = "uy.dat";
+    string pfilename = "p.dat";
+    string cpfilename = "CP.dat";
+
+    string uxfilenamealt = "#DIR2#/ux.dat";
+    string uyfilenamealt = "#DIR2#/uy.dat";
+    string pfilenamealt = "#DIR2#/p.dat";
+    string cpfilenamealt = "#DIR2#/CP.dat";
+
+    ifstream uxfile(uxfilename);
+    ifstream uyfile(uyfilename);
+    ifstream pfile(pfilename);
+
+    ifstream uxfilealt(uxfilenamealt);
+    ifstream uyfilealt(uyfilenamealt);
+    ifstream pfilealt(pfilenamealt);
+    ifstream cpfilealt(cpfilenamealt);
+
+    uxfile >> UxCR[];
+    uyfile >> UyCR[];
+    pfile  >> PCR[];
+
+    uxfilealt >> UxCRalt[];
+    uyfilealt >> UyCRalt[];
+    pfilealt  >> PCRalt[];
+    cpfilealt  >> CPCRalt[];
+
+    Uerror = abs((UxCR-UxCRalt)) + abs((UyCR-UyCRalt));
+    plot(Uerror, fill=1, cmm="velocity error");
+
+    bool logplot = false;
+
+    //if (logplot) {
+        //CPCRerror = log(abs(((CPCR-CPCRalt))*mask));
+        //PCRerror = log(abs(((PCR-PCRalt))*mask));
+
+        //real[int] logisos = [-6,-5,-4,-3,-2,1,0,1,2,3,4,5,6,7,8,9,10];
+
+        //plot(CPCRerror, fill=1, value=1, viso=logisos, cmm="coarse pressure error");
+        //plot(PCRerror, fill=1, value=1, viso=logisos, cmm="pressure error");
+    //} else {
+        //CPCRerror = ((CPCR-CPCRalt))*mask;
+        //PCRerror = ((PCR-PCRalt))*mask;
+
+        //plot(CPCRerror, fill=1, value=1, cmm="coarse pressure error");
+        //plot(PCRerror, fill=1, value=1, cmm="pressure error");
+    //}
+
+}

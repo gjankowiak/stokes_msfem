@@ -1,0 +1,67 @@
+func string runcommand(string cmd) {
+    string tmp = ".freefem_tmp_file";
+    string command = cmd + " > " + tmp;;
+    string sout = "";
+    int retcode = system(command);
+    ifstream resultstream(tmp);
+    resultstream >> sout;
+    cout << "+" + sout + "+" << endl;
+    string cleanupcommand = "rm " + tmp;
+    system(cleanupcommand);
+    return sout;
+}
+
+func string getmaskpath(string config, int Nf) {
+    string prefix;
+    if (runcommand("hostname") == "gauss") {
+        prefix = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/";
+    } else {
+        prefix = "/users/jankowiak/Dokumente/Projets/Lozinski2015/code/Stokes\ Freefem/gauss/";
+    }
+    return prefix + "configs/" + config + "/masks/" + Nf + ".dat";
+}
+
+func int fileexists(string filename) {
+    int retcode;
+    string command = "stat '" + filename + "' >/dev/null";
+    retcode = system(command);
+    return retcode;
+}
+
+func int maskexists(string config, int Nf) {
+    string maskpath;
+    maskpath = getmaskpath(config, Nf);
+    int retcode;
+    string command = "stat '" + maskpath + "' >/dev/null";
+    retcode = system(command);
+    return retcode;
+}
+
+func int loadmask(string config, int Nf, real[int] &maskarray) {
+    string maskpath;
+    maskpath = getmaskpath(config, Nf);
+    ifstream maskfile(maskpath);
+    maskfile >> maskarray;
+    return 0;
+}
+
+func string getlinktarget(string link) {
+    string command = "readlink '" + link +"' > .freefem_getlinktarget_tmp";;
+    string target = link;
+    int retcode = system(command);
+    if (retcode == 0) {
+        ifstream result(".freefem_getlinktarget_tmp");
+        result >> target;
+    }
+    string cleanupcommand = "rm .freefem_getlinktarget_tmp";
+    system(cleanupcommand);
+    return target;
+}
+
+// varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
+// matrix heat = heatstep(Vh, Vh);
+// Vh tempholes1, holes1 = holes0;
+// Vh0 tempholes0;
+// tempholes1[] = heat*holes1[];
+// tempholes0 = tempholes1 > 0;
+// mask0[] = 1-tempholes0;

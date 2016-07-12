@@ -1,0 +1,70 @@
+macro grad(u) [dx(u), dy(u)] //
+macro div(ux, uy) (dx(ux)+dy(uy)) //
+
+macro a(u, v, nu, sigma) (nu*(dx(u)*dx(v)+dy(u)*dy(v)) + sigma*u*v) //
+macro bx(u, q) (-q*dx(u)) //
+macro by(u, q) (-q*dy(u)) //
+
+varf Ah(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=0);
+varf Ahx(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,3,uh=0) + on(4,uh=gx);
+varf Ahy(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,3,4,uh=0);
+varf Bxh(uh, qh) = int2d(Th)(bx(uh, qh));
+varf Byh(uh, qh) = int2d(Th)(by(uh, qh));
+varf Ph(unused, qh)   = int2d(Th)(qh);
+varf Stab(ph, qh) = int2d(Th)(1e-10*ph*qh-stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
+
+varf RHSx(unused, vh) = int2d(Th)(vh*0.0) + on(1,3,unused=0) + on(4,unused=gx);
+varf RHSy(unused, vh) = int2d(Th)(vh*0.0) + on(1,3,4,unused=0);
+varf RHSp(unused, qh) = int2d(Th)(-stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
+
+matrix A, Ax, Ay;
+
+if (config == "channel")
+{
+    Ax  = Ahx(Wh,Wh);
+    Ay  = Ahy(Wh,Wh);
+} else {
+    A  = Ah(Wh,Wh, solver=CG);
+}
+
+matrix Bx = Bxh(Wh,Vh);
+matrix By = Byh(Wh,Vh);
+matrix St = Stab(Vh, Vh);
+
+Wh Ux, Uy;
+Vh gp;
+
+cout << "Assembling FEM matrix... ";
+matrix C;
+if (config == "channel")
+{
+    C = [[Ax,  0,   Bx'],
+         [0,   Ay,  By'],
+         [Bx,  By,  St]];
+} else {
+    C = [[A,   0,   Bx'],
+         [0,   A,   By'],
+         [Bx,  By,  St]];
+}
+cout << "done." << endl;
+
+real[int] B(2*Wh.ndof+Vh.ndof);
+B = 0;
+
+B(0:Wh.ndof-1) = RHSx(0, Wh);
+B(Wh.ndof:2*Wh.ndof-1) = RHSy(0, Wh);
+B(2*Wh.ndof:(2*Wh.ndof+Vh.ndof-1)) = RHSp(0,Vh);
+
+cout << "setting solver... " << endl;
+if (mpi)
+    set(C, solver=sparsesolver, master=master);
+else
+    set(C, solver=GMRES);
+cout << "done." << endl;
+
+real[int] S(2*Wh.ndof+Vh.ndof);
+
+cout << "Solving..." << endl;
+S = C^-1 * B;
+[Ux[], Uy[], gp[]] = S;
+cout << "done" << endl;
