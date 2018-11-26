@@ -1,0 +1,30 @@
+# MsFEM
+
+# Résolu 3 nov. 2015
+# Problèmes dans la résolution MsFEM:
+# - fonctions de base de norme C ~ 1e3
+# - coéfficients de l'ordre de 1e-3
+# - solution globale de norme C ~ 1e10
+#
+# Apparaît pour la configuration "channel", avec CR2 et CR3 et
+# avec perforations aléatoires.
+#
+# Dans (certains) cas périodiques, n'apparaît que pour CR2 ?!
+# Peut-être que dans d'autres cas, on l'a pour CR3 mais pas CR2.
+#
+# Est-ce que c'est lié à la taille des cellules ?
+#
+# Essai avec une grille de taille 128
+
+Résolution MsFEM foireuse en fonction de n
+Cas problématiques :
+- swirl_RH:
+    - CRk = 2, n = 32
+    - CRk = 3, n = 64
+- swirl_P:
+    - CRk = 2, n = 16
+
+# Mi 27. Jan 13:32:52 CET 2016
+
+Launched channel_P2 (eps = 0.0625) because channel_P (eps = 4e-2)
+gives weird pressure errors for CR3, plus is assymetrical.
