@@ -16,7 +16,7 @@ do
             changed=$(find "$d" -printf "%P\n" | sort | diff - "$storage_file" | grep ".dat")
             if [ "$?" = 0 ]
             then
-                echo -e "$d\n$changed" | ssh gaspard@oknaj.eu mailx -s "Gauss\ computation\ result\ landed" gaspard
+                echo -e "$d\n$changed" | ssh gaspard@oknaj.eu mailx -s "Stokes MSFEM\ computation\ result\ landed" gaspard
                 echo $(date) >> "${storage_dir}/journal.txt"
                 echo "$changed" >> "${storage_dir}/journal.txt"
             fi
