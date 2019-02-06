@@ -43,3 +43,6 @@ configs
 # Data output folders
 
 <method>_<config>_data
+
+# Schmei3, ~/.freefem++.pref:
+loadpath = "/scratch/scratch/opt/freefem/lib/ff++/3.59/lib"

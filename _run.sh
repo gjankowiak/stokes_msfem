@@ -63,5 +63,5 @@ if [ "$HOSTNAME" == "greygoo" ]
 then
     FreeFem++ "$EDPFILE"
 else
-    mpirun -n 1 FreeFem++-mpi "$EDPFILE"
+    mpirun -n 1 FreeFem++-mpi -ne "$EDPFILE"
 fi

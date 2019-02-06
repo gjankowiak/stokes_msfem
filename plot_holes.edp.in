@@ -2,4 +2,4 @@ include "utils.edp"
 include "params.edp"
 include "defs.edp"
 
-plot(bath, fill=1, wait=1);
+plot(bath, fill=1, wait=1, ps="holes.eps");

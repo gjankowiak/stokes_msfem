@@ -244,7 +244,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             }
             cout << "done" << endl;
 
-            defaulttoMUMPS();
+            //defaulttoMUMPS();
             //realdefaulttoSuperLUdist();
             set(C, solver=sparsesolver, master=0);
 
@@ -345,7 +345,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
     cout << "##########################" << endl;
 
     //defaulttoMUMPS();
-    realdefaulttoSuperLUdist();
+    //realdefaulttoSuperLUdist();
     set(CC, solver=sparsesolver, master=0);
 
     /* Assemble the MsFEM RHS*/
@@ -500,7 +500,7 @@ for(int i=0;i<nx;i++)
         }
 
         cout << "settings solver" << endl;
-        defaulttoMUMPS();
+        //defaulttoMUMPS();
         //realdefaulttoSuperLUdist();
         set(C, solver=sparsesolver, master=0);
 

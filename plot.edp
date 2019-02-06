@@ -1,4 +1,6 @@
-verbosity=0;
+//verbosity=0;
+
+load "iovtk"
 
 include "utils.edp"
 include "params.edp"
@@ -71,10 +73,14 @@ VC CPCR;
     //isos[nbisos+1] = UxCR[].max;
     //plot(UxCR, fill=1, wait=1, cmm="x velocity", viso=isos);
 
-    plot(UxCR, fill=1, wait=1, cmm="x velocity", value=1, nbiso=100, ps="ux.ps");
-    plot(UyCR, fill=1, wait=1, cmm="y velocity", value=1, nbiso=100, ps="uy.ps");
+    //plot(UxCR, fill=1, cmm="x velocity", value=1, nbiso=100, ps="ux.ps");
+    //plot(UyCR, fill=1, cmm="y velocity", value=1, nbiso=100, ps="uy.ps");
     //plot(UxCR, fill=1, wait=1, ps="ux.ps", viso=vxisolevels, value=1);
     //plot(UyCR, fill=1, wait=1, ps="uy.ps", viso=vyisolevels, value=1);
+
+    int[int] ffordervel=[0];
+
+    savevtk("u.vtk", Th, [UxCR, UyCR, 0], dataname="U_CR", order=ffordervel);
 
     varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
     matrix heat = heatstep(Vh, Vh);
@@ -98,7 +104,7 @@ VC CPCR;
         cout << "Average coarse pressure: " << meanp << endl;
         cout << "Average masked coarse pressure: " << meanpmasked << endl;
         //plot(CPCR, fill=1, wait=1, cmm="coarse pressure (min/max = " + cpmin + "/" + cpmax + ")", nbiso=20, ps="pressure.ps");
-        plot(CPCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
+        //plot(CPCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
 
     }
 
@@ -111,5 +117,5 @@ VC CPCR;
     cout << "Average fine pressure: " << meanpf << endl;
     cout << "Average masked fine pressure: " << meanpfmasked << endl;
     //plot(PCR, fill=1, wait=1, cmm="pressure (min/max = " + pmin + "/" + pmax +")", nbiso=20);
-    plot(PCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
+    //plot(PCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
 }

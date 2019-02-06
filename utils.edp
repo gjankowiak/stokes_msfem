@@ -15,6 +15,8 @@ func string getmaskpath(string config, int Nf) {
     string prefix;
     if (runcommand("hostname") == "gauss") {
         prefix = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/";
+    } else if (runcommand("hostname") == "potier") {
+        prefix = "/home/gaspard/Documents/git/code/msfem_sshfs/";
     } else {
         prefix = "/users/jankowiak/Documents/code/stokes/freefem/";
     }
