@@ -80,9 +80,18 @@ VC CPCR;
 
     int[int] ffordervel=[0];
 
-    savevtk("u.vtk", Th, [UxCR, UyCR, 0], dataname="U_CR", order=ffordervel);
-    savevtk("p.vtk", Th, PCR, dataname="p_CR", order=ffordervel);
+    savevtk("u.vtk", Th, [UxCR, UyCR, 0], order=ffordervel);
+    savevtk("p.vtk", Th, PCR, order=ffordervel);
 
+
+    if (fileexists(cpfilename) == 0)
+    {
+        ifstream cpfile(cpfilename);
+        cpfile  >> CPCR[];
+        savevtk("p_coarse.vtk", MC, PCR, order=ffordervel);
+    }
+
+    /*
     varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
     matrix heat = heatstep(Vh, Vh);
     Vh tempholes1, holes1 = bath;
@@ -119,4 +128,5 @@ VC CPCR;
     cout << "Average masked fine pressure: " << meanpfmasked << endl;
     //plot(PCR, fill=1, wait=1, cmm="pressure (min/max = " + pmin + "/" + pmax +")", nbiso=20);
     //plot(PCR, fill=1, wait=1, viso=pisolevels, ps="pressure.ps");
+    */
 }
