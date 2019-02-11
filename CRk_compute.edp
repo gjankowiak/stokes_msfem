@@ -413,6 +413,9 @@ VC CP;
 CP[] = 0;
 real meancoarsepress;
 
+// Compute the weighting function Avg which counts how many
+// coarse cells a given mesh node belongs to. This is needed to
+// reconstruct the full domain solution.
 real[int] ones(cx+1);
 for(int k=0; k<=cx; k++) ones[k]=1;
 for(int i=0;i<nx;i++)
