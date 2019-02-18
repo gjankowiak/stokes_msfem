@@ -221,6 +221,7 @@ do
 
         if [ "$exitcode" = 0 ]
         then
+            [ "${options[DRY]}" = 0 ] && ./ezplot.sh ${dated_dir} > /dev/null
             echo -e "\E[32m\033[1m#\E[0m"
             echo -e "\E[32m\033[1m# SUCCESS\E[0m"
             [ ${options[DRY]} = 0 ] && echo -e "\E[32m\033[1m#         Dir: $dated_dir\E[0m"
