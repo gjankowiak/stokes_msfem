@@ -269,5 +269,5 @@ do
 done
 
 if [ "${options[DRY]}" = 0 ]; then
-    echo -e "Config: ${options[config]}\nNf:    ${options[Nf]}\nExit code: $exitcode" | cat - <(tail -n 500 "$logfile") | ssh gaspard@garnesier.oknaj.eu mailx -s "Stokes_MSFEM_computation_complete" gaspard@math.janko.fr
+    echo -e "Config: ${options[config]}\nNf:    ${options[Nf]}\nREF: ${options[REF]}\nCRk: ${options[CRk]}\nn: ${options[n]}\nExit code: $exitcode" | cat - <(tail -n 500 "$logfile") | ssh gaspard@garnesier.oknaj.eu mailx -s "Stokes_MSFEM_computation_complete" gaspard@math.janko.fr
 fi
