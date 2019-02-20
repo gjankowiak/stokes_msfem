@@ -38,6 +38,8 @@ listconfigs
 
 args=$*
 
+tmux rename-session "$*"
+
 declare -A options
 
 case "$1" in
@@ -178,13 +180,13 @@ do
 
     for n in ${coarse_size[@]};
     do
-        if [[ " 2 4 8 16 32 64 128 256 512 1024 2048 " =~ " $n " ]];
-        then
-            :
-        else
-            echo "Skipping invalid coarse mesh size: '$n'"
-            continue
-        fi
+        # if [[ " 2 4 8 16 32 64 128 256 512 1024 2048 " =~ " $n " ]];
+        # then
+        #     :
+        # else
+        #     echo "Skipping invalid coarse mesh size: '$n'"
+        #     continue
+        # fi
 
         if [ "${options[REF]}" = 1 ]
         then
