@@ -1,3 +1,5 @@
+#!/bin/bash
+
 BASEDIR="$PWD"
 
 if [ "$1" = "--clean" ]
