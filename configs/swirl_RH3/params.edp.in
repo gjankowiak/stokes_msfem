@@ -10,16 +10,16 @@ real maxobstr = #MO#;
 real tgv=#TGV#;
 
 real eps=1;
-real radiusfactor = 0.0125^2;
-real stabsig = 1e-1;
+real radiusfactor = 0.5;
+real stabsig = 0.2;
 
-real Lx=2, Ly=1; //Omega=(0,Lx) X (0,Ly)
+real Lx=1, Ly=1; //Omega=(0,Lx) X (0,Ly)
 int Nf=#Nf#;
-int Nx=2*Nf, Ny=Nf;
+int Nx=Nf, Ny=Nf;
 real delta=1.0/Nf, La=delta;
 
 int n=#n#;
-int nx=2*n, ny=n;  //coarse mesh
+int nx=n, ny=n;  //coarse mesh
 int cx=Nx/nx, cy=Ny/ny; //fine mesh on every coarse cell
 real Hx=Lx/nx, Hy=Ly/ny;
 

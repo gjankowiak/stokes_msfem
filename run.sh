@@ -20,7 +20,7 @@ printhelp()
     echo " --dry         : do a try run, ie do not save results"
     echo " --Nf          : fine mesh size"
     echo " --n           : comma separated coarse mesh sizes"
-    echo "                 (default: 4,8,16,32,64,128)"
+    echo "                 (default: 8,15,20,27,36,45,90,135)"
     echo " --CRk         : comma separated number of functions per edge"
     echo "                 can be 2 or 3 (default: 2,3)"
     echo " --tgv         : value to use as 'tgv' in FreeFem++"
@@ -37,6 +37,8 @@ declare -a avail_configs=()
 listconfigs
 
 args=$*
+
+tmux rename-session "$*"
 
 declare -A options
 
@@ -58,7 +60,7 @@ else
 fi
 
 declare -a CRks=(2 3)
-declare -a coarse_size=(4 8 16 32 64 128)
+declare -a coarse_size=(8 15 20 27 36 45 90 135)
 
 options[REF]=0
 options[run_type]="FULL MSFEM"
@@ -178,13 +180,13 @@ do
 
     for n in ${coarse_size[@]};
     do
-        if [[ " 2 4 8 16 32 64 128 256 512 1024 2048 " =~ " $n " ]];
-        then
-            :
-        else
-            echo "Skipping invalid coarse mesh size: '$n'"
-            continue
-        fi
+        # if [[ " 2 4 8 16 32 64 128 256 512 1024 2048 " =~ " $n " ]];
+        # then
+        #     :
+        # else
+        #     echo "Skipping invalid coarse mesh size: '$n'"
+        #     continue
+        # fi
 
         if [ "${options[REF]}" = 1 ]
         then
@@ -221,6 +223,7 @@ do
 
         if [ "$exitcode" = 0 ]
         then
+            [ "${options[DRY]}" = 0 ] && ./ezplot.sh ${dated_dir} > /dev/null
             echo -e "\E[32m\033[1m#\E[0m"
             echo -e "\E[32m\033[1m# SUCCESS\E[0m"
             [ ${options[DRY]} = 0 ] && echo -e "\E[32m\033[1m#         Dir: $dated_dir\E[0m"
@@ -266,5 +269,5 @@ do
 done
 
 if [ "${options[DRY]}" = 0 ]; then
-    echo -e "Config: ${options[config]}\nNf:    ${options[Nf]}\nExit code: $exitcode" | cat - <(tail -n 500 "$logfile") | ssh gaspard@garnesier.oknaj.eu mailx -s "Stokes_MSFEM_computation_complete" gaspard@math.janko.fr
+    echo -e "Config: ${options[config]}\nNf:    ${options[Nf]}\nREF: ${options[REF]}\nCRk: ${options[CRk]}\nn: ${options[n]}\nExit code: $exitcode" | cat - <(tail -n 500 "$logfile") | ssh gaspard@garnesier.oknaj.eu mailx -s "Stokes_MSFEM_computation_complete" gaspard@math.janko.fr
 fi

@@ -130,10 +130,10 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
                 H = (ed & 1) ? Hy : Hx;
 
                 blockedpercentage = int1d(Kij, ed+1)(localbath)/H;
-                blockededges[ed] = (blockedpercentage > min(1.0, maxobstr));
+                blockededges[ed] = (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
                 if (blockededges[ed]) {
                     cout << "EDGE " << i << ", " << j << ", " << ed+1;
-                    cout << " BLOCKED! (" << blockedpercentage << "% obstructed)" << endl;
+                    cout << " BLOCKED! (" << 100*blockedpercentage << "% obstructed)" << endl;
                     /* update the blocked edge map, each cell is made of 2 triangles
                        hence the 2 values to set */
                     blockedh[](2*(i*ny+j)) = 1;
@@ -143,7 +143,6 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
             /* Define the Stokes variationnal form*/
             varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
-            varf RHSp(unused, qh) = int2d(K)( -stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
             matrix A=pb(VK,VK);
 
             /* Define the linear forms associated to constraints
@@ -263,9 +262,6 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
             real[int] X(Ndof+Nlam+1-penalpressure), F(Ndof+Nlam+1-penalpressure), lam(Nlam); F=0;
             real[int,int] Lam(Nlam,Nlam);
-
-            // Pressure stabilization (RHS)
-            F(2*VK.ndof:Ndof-1) = RHSp(0, PK);
 
             /* Solve the cell problem*/
             for(int s=0; s<FBedge*4; s++) {
@@ -461,7 +457,6 @@ for(int i=0;i<nx;i++)
         lsigh[] = localsigh[];
 
         varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
-        varf RHSp(unused, qh) = int2d(K)( -stabsig*hTriangle^2*(dx(qh)*fx + dy(qh)*fy));
         matrix A=pb(VK,VK);
         matrix C;
 
@@ -521,10 +516,6 @@ for(int i=0;i<nx;i++)
 
         int Ndof=2*VK.ndof+PK.ndof, Nlam=4*FBedge;
         real[int] X(Ndof+Nlam+1-penalpressure), F(Ndof+Nlam+1-penalpressure), lam(Nlam); F=0;
-
-        // Pressure stabilization (RHS)
-        F(2*VK.ndof:Ndof-1) = RHSp(0, PK);
-
 
         /* End of code copy*/
 
