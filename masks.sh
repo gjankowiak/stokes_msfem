@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo -n "Nf: "
+read Nf
+
 function genmask {
     conf=$1
     config=${conf/configs\//}
@@ -18,14 +21,10 @@ function genmask {
     [ -L "$holes_file" ] && continue
     masks_dir="configs/${config}/masks"
     [ -d "$masks_dir" ] || mkdir "$masks_dir"
-    #for Nf in 2048 1024 512 256 128 16; do
-    for Nf in 128; do
-        echo "Nf: $Nf"
-        [ -f "$masks_dir/${Nf}.dat" ] && continue
-        sed -e "s/#config#/$config/" -e "s/#Nf#/$Nf/" <masks.edp.in >masks.edp
-        bash ./prepare_params.sh $config $Nf 3 3 false 1
-        FF_VERBOSITY=0 FreeFem++ masks.edp
-    done
+    [ -f "$masks_dir/${Nf}.dat" ] && continue
+    sed -e "s/#config#/$config/" -e "s/#Nf#/$Nf/" <masks.edp.in >masks.edp
+    bash ./prepare_params.sh $config $Nf 3 3 false 1
+    FF_VERBOSITY=0 FreeFem++ masks.edp
 }
 
 if [ -z "$1" ]
