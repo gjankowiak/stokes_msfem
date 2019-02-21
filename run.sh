@@ -20,7 +20,7 @@ printhelp()
     echo " --dry         : do a try run, ie do not save results"
     echo " --Nf          : fine mesh size"
     echo " --n           : comma separated coarse mesh sizes"
-    echo "                 (default: 4,8,16,32,64,128)"
+    echo "                 (default: 8,15,20,27,36,45,90,135)"
     echo " --CRk         : comma separated number of functions per edge"
     echo "                 can be 2 or 3 (default: 2,3)"
     echo " --tgv         : value to use as 'tgv' in FreeFem++"
@@ -60,7 +60,7 @@ else
 fi
 
 declare -a CRks=(2 3)
-declare -a coarse_size=(4 8 16 32 64 128)
+declare -a coarse_size=(8 15 20 27 36 45 90 135)
 
 options[REF]=0
 options[run_type]="FULL MSFEM"
