@@ -130,10 +130,10 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
                 H = (ed & 1) ? Hy : Hx;
 
                 blockedpercentage = int1d(Kij, ed+1)(localbath)/H;
-                blockededges[ed] = (blockedpercentage > min(1.0, maxobstr));
+                blockededges[ed] = (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
                 if (blockededges[ed]) {
                     cout << "EDGE " << i << ", " << j << ", " << ed+1;
-                    cout << " BLOCKED! (" << blockedpercentage << "% obstructed)" << endl;
+                    cout << " BLOCKED! (" << 100*blockedpercentage << "% obstructed)" << endl;
                     /* update the blocked edge map, each cell is made of 2 triangles
                        hence the 2 values to set */
                     blockedh[](2*(i*ny+j)) = 1;
