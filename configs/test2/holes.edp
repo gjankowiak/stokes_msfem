@@ -1,8 +1,0 @@
-real pad = 0.015;
-
-real holexl = (Lx/2-pad), holexh = Lx/2+pad, holeyl = Ly/2-pad, holeyh = Ly/2+pad;
-
-func bat = (((X-holexl)*(X-holexl) + (Y-holeyl)*(Y-holeyl) < radiusfactor) ||
-((X-holexl)*(X-holexl) + (Y-holeyh)*(Y-holeyh) < radiusfactor) ||
-((X-holexh)*(X-holexh) + (Y-holeyl)*(Y-holeyl) < radiusfactor) ||
-((X-holexh)*(X-holexh) + (Y-holeyh)*(Y-holeyh) < radiusfactor));
