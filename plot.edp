@@ -88,7 +88,7 @@ VC CPCR;
     {
         ifstream cpfile(cpfilename);
         cpfile  >> CPCR[];
-        savevtk("p_coarse.vtk", MC, PCR, order=ffordervel);
+        savevtk("p_coarse.vtk", MC, CPCR, order=ffordervel);
     }
 
     /*

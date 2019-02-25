@@ -1,7 +1,0 @@
-include "utils.edp"
-
-string foo = runcommand("hostname");
-bool bar = (foo == "gauss");
-
-cout << "--" << endl;
-cout << bar << endl;
