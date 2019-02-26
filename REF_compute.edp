@@ -15,7 +15,7 @@ varf Ahy(uh, vh) = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=gy);
 varf Ah(uh, vh)  = int2d(Th)(a(uh, vh, nuh, sigh)) + on(1,2,3,4,uh=0);
 varf Bxh(uh, qh) = int2d(Th)(bx(uh, qh));
 varf Byh(uh, qh) = int2d(Th)(by(uh, qh));
-varf Ph(unused, qh)   = int2d(Th)(qh);
+varf Ph(unused, qh)   = int2d(Th)(qh*(1-bath));
 varf Stab(ph, qh) = int2d(Th)((1-normp)*1e-12*ph*qh+stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
 
 //real stabtheta = 1e-1*delta*delta;

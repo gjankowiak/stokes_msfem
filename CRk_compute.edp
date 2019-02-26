@@ -42,6 +42,10 @@ real[int,int] arrB(VK.ndof,4), arrBx(VK.ndof,2), arrBy(VK.ndof,2);
 /* MsFEM coefficients*/
 real[int] uH(NDOFu), pH(nx*ny);
 
+/* cell areas */
+real[int,int] areaH(nx*ny,1);
+
+
 /* Lagrange multiplier associated to pressure*/
 real[int] lamp(1);
 
@@ -136,6 +140,9 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
             cout << enumbers << endl;
 
+            /* compute the area of the cell */
+            areaH(i*ny+j,0)=int2d(Kij)(1-localbath);
+
             /* Determine which edges are blocked and flag them*/
             real H, blockedpercentage;
 
@@ -186,6 +193,13 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
             matrix A=pb(VK,VK);
 
+            if (!penalpressure) {
+                /* Require that ∫_Ω p = 0*/
+                real[int,int] arrP(PK.ndof,1);
+                varf pres0(unused,q)=int2d(Kij)(q*(1-localbath));
+                arrP(:,0)=pres0(0,PK);
+                PP=arrP;
+            }
 
 
             /* Define the linear forms associated to constraints
@@ -213,11 +227,6 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
                    There are at least 2 ways to deal with that problem */
                 if (!penalpressure)
                 {
-                    /* Require that ∫_Ω p = 0*/
-                    real[int,int] arrP(PK.ndof,1);
-                    varf pres0(unused,q)=int2d(K)(q);
-                    arrP(:,0)=pres0(0,PK);
-                    PP=arrP;
                     varf Stab(ph, qh) = int2d(K)( -stabsig*hTriangle^2*(dx(ph)*dx(qh) + dy(ph)*dy(qh)));
                     St = Stab(PK, PK);
                 } else {
@@ -365,7 +374,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
     real[int,int] CPlinform(nx*ny,1);
     CPlinform(0:nx*ny-1,0) = 1;
 
-    matrix CPmat = CPlinform;
+    matrix CPmat = areaH;
     matrix CC=[[AA, BB,    0    ],
                [BB', 0,     CPmat],
                [0,  CPmat', 0    ]];
@@ -509,6 +518,13 @@ for(int i=0;i<nx;i++)
             }
         }
 
+        if (!penalpressure) {
+            /* Require that ∫_Ω p = 0*/
+            real[int,int] arrP(PK.ndof,1);
+            varf pres0(unused,q)=int2d(Kij)(q*(1-localbath));
+            arrP(:,0)=pres0(0,PK);
+            PP=arrP;
+        }
 
         varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
         matrix A=pb(VK,VK);
