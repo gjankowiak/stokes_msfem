@@ -1,4 +1,7 @@
+verbosity=0;
 macro a(u,v,nu,sigma) (dx(u)*dx(v)*nu+dy(u)*dy(v)*nu+u*v*sigma) //
+
+macro cell2edge(i, j) ([i + nx*j, nx*(ny+1) + (nx+1)*j + i+1, i + nx*(j+1), nx*(ny+1) + (nx+1)*j + i]) //
 
 /* DOFg maps edge grouped local function index (EGLFI) to global edge index (GEI)*/
 int[int] DOFg(4*FBedge), DOFr(4*FBedge);
@@ -10,10 +13,6 @@ if (FBedge == 2)
     DOFl=[0,4, 1,5, 2,6, 3,7];
 else
     DOFl=[0,4,10, 1,5,8, 2,6,11, 3,7,9];
-    /*DOFl=[0,4,8, 1,5,9, 2,6,10, 3,7,11];*/
-
-/* Blocked edge flags*/
-int[int] blockededges(4);
 
 /* Net influx for each basis function (EGLFI)*/
 real[int] FuncFlux;
@@ -23,11 +22,22 @@ else
     FuncFlux = [0,1,0, -1,0,0, 0,-1,0, 1,0,0 ];
 
 /* Degrees of freedom for whole domain velocity*/
-
 int NDOFu=FBedge*( (nx+1)*ny+(ny+1)*nx );
+
+/* Number of (coarse mesh) edges */
+int Nedges=( (nx+1)*ny+(ny+1)*nx );
+
+/* zeroes for the third weight function */
+real[int] w3zero(Nedges);
+
+/* Blocked edge flags */
+int[int] blockededges(Nedges);
 
 /* Matrices associated to linear and bilinear terms in weak formulation*/
 matrix B, B0x, B0y, Bpx, Bpy, St, PP;
+
+/* arrays for edge-wise definition of the matrices B0x B0y  */
+real[int,int] arrB(VK.ndof,4), arrBx(VK.ndof,2), arrBy(VK.ndof,2);
 
 /* MsFEM coefficients*/
 real[int] uH(NDOFu), pH(nx*ny);
@@ -67,7 +77,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
     } //
 
     /* Macro to *add* boundary terms to the FEM matrix and RHS*/
-    macro AddEntryBoundary(i,num, vert)
+    macro AddEntryBoundary(i, num, vert, edge)
     {
         AddEntry(A,i,i,tgv);
         AddEntry(A,i+1,i+1,tgv);
@@ -80,9 +90,9 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
         {
             AddEntry(A,i+2,i+2,tgv);
             if (vert)
-                b[i+2]=tgv*int1d(K,num)(gx*(y/Hy-0.5));
+                b[i+2]=tgv*int1d(K,num)(gx*(y-w3zero[edge]));
             else
-                b[i+2]=tgv*int1d(K,num)(gy*(x/Hx-0.5));
+                b[i+2]=tgv*int1d(K,num)(gy*(x-w3zero[edge]));
             bf1 << "," << b[i+2];
         }
         bf1 << endl;
@@ -122,22 +132,53 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             lnuh[] = localnuh[];
             lsigh[] = localsigh[];
 
+            int[int] enumbers = cell2edge(i, j);
+
+            cout << enumbers << endl;
+
             /* Determine which edges are blocked and flag them*/
             real H, blockedpercentage;
+
             for (int ed=0; ed<4; ed++) {
                 /* H is the length of the edge, it depends on
                    the edge being horizontal or vertical */
-                H = (ed & 1) ? Hy : Hx;
+                H = (ed % 2 == 1) ? Hy : Hx;
+
 
                 blockedpercentage = int1d(Kij, ed+1)(localbath)/H;
-                blockededges[ed] = (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
-                if (blockededges[ed]) {
+                blockededges[enumbers[ed]] = (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
+
+                if (!blockededges[enumbers[ed]]) {
+                    if (ed % 2 == 1) {
+                        // vertical edges
+                        w3zero[enumbers[ed]] = int1d(Kij, ed+1)((1-localbath)*(y - shiftY));
+                    } else {
+                        // horizontal edges
+                        w3zero[enumbers[ed]] = int1d(Kij, ed+1)((1-localbath)*(x - shiftX));
+                    }
+                    cout << "w3zero[" << ed << "] = " << w3zero[enumbers[ed]] << endl;
+                } else {
                     cout << "EDGE " << i << ", " << j << ", " << ed+1;
                     cout << " BLOCKED! (" << 100*blockedpercentage << "% obstructed)" << endl;
                     /* update the blocked edge map, each cell is made of 2 triangles
                        hence the 2 values to set */
                     blockedh[](2*(i*ny+j)) = 1;
                     blockedh[](2*(i*ny+j)+1) = 1;
+
+                    w3zero[enumbers[ed]] = 0.5;
+                }
+
+                if (FBedge == 3) {
+                    /* ∫_e u·n x ds*/
+                    varf Gam0lin(unused,vh)=int1d(K,1)(vh*(x-w3zero[enumbers[0]]));
+                    arrBy(:,0)=Gam0lin(0,VK);
+                    varf Gam1lin(unused,vh)=int1d(K,2)(vh*(y-w3zero[enumbers[1]]));
+                    arrBx(:,0)=Gam1lin(0,VK);
+                    varf Gam2lin(unused,vh)=int1d(K,3)(vh*(x-w3zero[enumbers[2]]));
+                    arrBy(:,1)=Gam2lin(0,VK);
+                    varf Gam3lin(unused,vh)=int1d(K,4)(vh*(y-w3zero[enumbers[3]]));
+                    arrBx(:,1)=Gam3lin(0,VK);
+                    B0x=arrBx; B0y=arrBy;
                 }
             }
 
@@ -145,12 +186,13 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
             matrix A=pb(VK,VK);
 
+
+
             /* Define the linear forms associated to constraints
                and do it only for the first cell */
             if (i==0 && j==0) {
 
                 /* ∫_e u_x ds and ∫_e u_y ds*/
-                real[int,int] arrB(VK.ndof,4), arrBx(VK.ndof,2), arrBy(VK.ndof,2);
                 varf Gam0(unused,vh)=int1d(K,1)(vh);
                 arrB(:,0)=Gam0(0,VK);
                 varf Gam1(unused,vh)=int1d(K,2)(vh);
@@ -160,17 +202,6 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
                 varf Gam3(unused,vh)=int1d(K,4)(vh);
                 arrB(:,3)=Gam3(0,VK);
                 B=arrB;
-
-                /* ∫_e u·n x ds*/
-                varf Gam0lin(unused,vh)=int1d(K,1)(vh*(x/Hx-0.5));
-                arrBy(:,0)=Gam0lin(0,VK);
-                varf Gam1lin(unused,vh)=int1d(K,2)(vh*(y/Hy-0.5));
-                arrBx(:,0)=Gam1lin(0,VK);
-                varf Gam2lin(unused,vh)=int1d(K,3)(vh*(x/Hx-0.5));
-                arrBy(:,1)=Gam2lin(0,VK);
-                varf Gam3lin(unused,vh)=int1d(K,4)(vh*(y/Hy-0.5));
-                arrBx(:,1)=Gam3lin(0,VK);
-                B0x=arrBx; B0y=arrBy;
 
                 /* ∫_Ω ∇·v p dx*/
                 varf presx(p,v)=int2d(K)( dx(v)*p);
@@ -267,7 +298,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             for(int s=0; s<FBedge*4; s++) {
                 int edge = s % 4;
                 /* If the correponding edge is blocked, set the function to 0*/
-                if (blockededges[edge]) {
+                if (blockededges[enumbers[edge]]) {
                     ux = 0;
                     uy = 0;
                     p  = 0;
@@ -300,7 +331,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
             /* Build the Stokes part of the MsFEM matrix*/
             for(int s=0; s<4*FBedge; s++) {
-                if (blockededges[s % FBedge]) {
+                if (blockededges[enumbers[s % FBedge]]) {
                         AddEntry(A,DOFr[s], DOFr[s], tgv);
                 } else {
                     for(int t=0; t<4*FBedge; t++)
@@ -309,15 +340,15 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             }
 
             /* Add boundary conditions using huge values on the diagonal*/
-            if (i==0    && !blockededges[3]) AddEntryBoundary(DOFg[FBedge*3], 4, 1);
-            if (i==nx-1 && !blockededges[1]) AddEntryBoundary(DOFg[FBedge*1], 2, 1);
-            if (j==0    && !blockededges[0]) AddEntryBoundary(DOFg[FBedge*0], 1, 0);
-            if (j==ny-1 && !blockededges[2]) AddEntryBoundary(DOFg[FBedge*2], 3, 0);
+            if (i==0    && !blockededges[enumbers[3]]) AddEntryBoundary(DOFg[FBedge*3], 4, 1, enumbers[3]);
+            if (i==nx-1 && !blockededges[enumbers[1]]) AddEntryBoundary(DOFg[FBedge*1], 2, 1, enumbers[1]);
+            if (j==0    && !blockededges[enumbers[0]]) AddEntryBoundary(DOFg[FBedge*0], 1, 0, enumbers[0]);
+            if (j==ny-1 && !blockededges[enumbers[2]]) AddEntryBoundary(DOFg[FBedge*2], 3, 0, enumbers[2]);
 
             /* Build the divergence free part of the MsFEM matrix*/
             {
                 for(int s=0; s<4*FBedge; s++) {
-                    if (blockededges[s % FBedge]) continue;
+                    if (blockededges[enumbers[s % FBedge]]) continue;
                     AddEntry(B,DOFg[s], i*ny+j, FuncFlux[s]);
                 }
             }
@@ -370,7 +401,8 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
     if (ny<=JL) {
 
-        int errcode = exec("/home/gjankowiak/tmp/julia-0.4.2/julia -p 5 ../../juliasolve.jl msfem_a.txt msfem_b.txt msfem_x_julia.txt");
+        //int errcode = exec("/home/gjankowiak/tmp/julia-0.4.2/julia -p 5 ../../juliasolve.jl msfem_a.txt msfem_b.txt msfem_x_julia.txt");
+        int errcode = exec("/scratch/scratch/julia/bin/julia -p 5 ../../juliasolve.jl msfem_a.txt msfem_b.txt msfem_x_julia.txt");
         cout << "MsFEM Julia solve errcode: " << errcode << endl;
 
         ifstream msfemxjulia("msfem_x_julia.txt");
@@ -455,6 +487,28 @@ for(int i=0;i<nx;i++)
         localbath = bath;
         lnuh[] = localnuh[];
         lsigh[] = localsigh[];
+
+        real H, blockedpercentage;
+
+        int[int] enumbers = cell2edge(i, j);
+        for (int ed=0; ed<4; ed++) {
+            /* H is the length of the edge, it depends on
+               the edge being horizontal or vertical */
+
+            if (FBedge == 3) {
+                /* ∫_e u·n x ds*/
+                varf Gam0lin(unused,vh)=int1d(K,1)(vh*(x-w3zero[enumbers[0]]));
+                arrBy(:,0)=Gam0lin(0,VK);
+                varf Gam1lin(unused,vh)=int1d(K,2)(vh*(y-w3zero[enumbers[1]]));
+                arrBx(:,0)=Gam1lin(0,VK);
+                varf Gam2lin(unused,vh)=int1d(K,3)(vh*(x-w3zero[enumbers[2]]));
+                arrBy(:,1)=Gam2lin(0,VK);
+                varf Gam3lin(unused,vh)=int1d(K,4)(vh*(y-w3zero[enumbers[3]]));
+                arrBx(:,1)=Gam3lin(0,VK);
+                B0x=arrBx; B0y=arrBy;
+            }
+        }
+
 
         varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
         matrix A=pb(VK,VK);
