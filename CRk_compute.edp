@@ -45,6 +45,7 @@ real[int] uH(NDOFu), pH(nx*ny);
 /* cell areas */
 real[int,int] areaH(nx*ny,1);
 
+real[int,int] arrP(PK.ndof,1);
 
 /* Lagrange multiplier associated to pressure*/
 real[int] lamp(1);
@@ -138,10 +139,25 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
             int[int] enumbers = cell2edge(i, j);
 
-            cout << enumbers << endl;
-
             /* compute the area of the cell */
             areaH(i*ny+j,0)=int2d(Kij)(1-localbath);
+
+            if (!penalpressure) {
+                /* if the coarse cell is more than 90% covered by obstacles,
+                   treat all edges as obstructed */
+                //real oclusion = int2d(Kij)(localbath) / (Hx*Hy);
+                //if (oclusion > 0.9) {
+                    //for(int ed = 0; ed<4; ed++) {
+                        //blockededges[enumbers[ed]] += 1;
+                    //}
+                //}
+
+                /* Otherwise, require that ∫ p (1 - obstacles) = 0*/
+
+                varf pres0(unused,q)=int2d(Kij)(q*(1-localbath));
+                arrP(:,0) = pres0(0,Vij);
+                PP = arrP;
+            }
 
             /* Determine which edges are blocked and flag them*/
             real H, blockedpercentage;
@@ -153,7 +169,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
 
 
                 blockedpercentage = int1d(Kij, ed+1)(localbath)/H;
-                blockededges[enumbers[ed]] = (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
+                blockededges[enumbers[ed]] += (blockedpercentage > (min(1.0, maxobstr) + 1e-8));
 
                 if (!blockededges[enumbers[ed]]) {
                     if (ed % 2 == 1) {
@@ -163,7 +179,7 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
                         // horizontal edges
                         w3zero[enumbers[ed]] = int1d(Kij, ed+1)((1-localbath)*(x - shiftX));
                     }
-                    cout << "w3zero[" << ed << "] = " << w3zero[enumbers[ed]] << endl;
+                    //cout << "w3zero[" << ed << "] = " << w3zero[enumbers[ed]] << endl;
                 } else {
                     cout << "EDGE " << i << ", " << j << ", " << ed+1;
                     cout << " BLOCKED! (" << 100*blockedpercentage << "% obstructed)" << endl;
@@ -192,14 +208,6 @@ real[int] uxmin(ncomputedfuncs), uxmax(ncomputedfuncs),
             /* Define the Stokes variationnal form*/
             varf pb(uh,vh)=int2d(K)(a(uh, vh, lnuh, lsigh));
             matrix A=pb(VK,VK);
-
-            if (!penalpressure) {
-                /* Require that ∫_Ω p = 0*/
-                real[int,int] arrP(PK.ndof,1);
-                varf pres0(unused,q)=int2d(Kij)(q*(1-localbath));
-                arrP(:,0)=pres0(0,PK);
-                PP=arrP;
-            }
 
 
             /* Define the linear forms associated to constraints
@@ -520,9 +528,9 @@ for(int i=0;i<nx;i++)
 
         if (!penalpressure) {
             /* Require that ∫_Ω p = 0*/
-            real[int,int] arrP(PK.ndof,1);
             varf pres0(unused,q)=int2d(Kij)(q*(1-localbath));
-            arrP(:,0)=pres0(0,PK);
+            //varf pres0(unused,q)=int2d(K)(q);
+            arrP(:,0)=pres0(0,Vij);
             PP=arrP;
         }
 

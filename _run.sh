@@ -64,4 +64,5 @@ then
     FreeFem++ "$EDPFILE"
 else
     mpirun -n 1 FreeFem++-mpi -ne "$EDPFILE"
+    #FreeFem++ -ne "$EDPFILE"
 fi

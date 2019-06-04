@@ -1,14 +1,14 @@
 verbosity = 1;
 
-include "mpi.edp"
+//include "mpi.edp"
 
 include "params.edp"
 
 include "utils.edp"
 
 //load "MUMPS"
-//load "MUMPS_FreeFem"
-load "SuperLu"
+load "MUMPS_FreeFem"
+//load "SuperLu"
 
 include "defs.edp"
 include "bcs.edp"

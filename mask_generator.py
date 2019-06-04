@@ -6,12 +6,12 @@ pi = 3.14151926
 
 x_min, x_max = 0.04, 1.96
 y_min, y_max = 0.02, 0.98
-r_min, r_max = 0.0025, 0.0025
+r_min, r_max = 0.0125, 0.05
 
 scale_w = 1
 scale_h = 1
 
-n_holes = 100
+n_holes = 20
 
 s = ""
 for n in range(n_holes):
