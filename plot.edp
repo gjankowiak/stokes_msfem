@@ -6,9 +6,13 @@ include "utils.edp"
 include "params.edp"
 include "defs.edp"
 
-Wh UxCR, UyCR;
+Vh UxCR, UyCR;
 Vh PCR;
 VC CPCR;
+
+cout << "CR: " << FBedge << endl;
+cout << "Nf: " << Nf << endl;
+cout << "n: " << n << endl;
 
 {
     string uxfilename = "ux.dat";
@@ -23,7 +27,6 @@ VC CPCR;
     uxfile >> UxCR[];
     uyfile >> UyCR[];
     pfile  >> PCR[];
-
 
     int ison = 30;
     real[int] vxisolevels(ison);
@@ -80,15 +83,15 @@ VC CPCR;
 
     int[int] ffordervel=[0];
 
-    savevtk("u.vtk", Th, [UxCR, UyCR, 0], order=ffordervel);
-    savevtk("p.vtk", Th, PCR, order=ffordervel);
+    savevtk("u.vtu", Th, [UxCR, UyCR, 0], order=ffordervel, bin=false);
+    savevtk("p.vtu", Th, PCR, order=ffordervel, bin=false);
 
 
     if (fileexists(cpfilename) == 0)
     {
         ifstream cpfile(cpfilename);
         cpfile  >> CPCR[];
-        savevtk("p_coarse.vtk", MC, CPCR, order=ffordervel);
+        savevtk("p_coarse.vtu", MC, CPCR, order=ffordervel, bin=false);
     }
 
     /*

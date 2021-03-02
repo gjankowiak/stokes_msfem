@@ -143,6 +143,7 @@ done
 configdir="configs/${options[config]}"
 
 base_dir="$PWD"
+base_dir="/scratch/scratch/jankowiak/msfem"
 
 
 for CRk in ${CRks[@]};
@@ -180,6 +181,13 @@ do
 
     for n in ${coarse_size[@]};
     do
+        if [[ $(( ${options[Nf]} % $n )) != 0 ]]
+        then
+            echo "Error: fine mesh size (${options[Nf]}) not divisible by coarse mesh size ($n), try one the following:"
+            python -c "import sympy; print(sympy.divisors(${options[Nf]}))"
+            echo "skipping"
+            continue
+        fi
         # if [[ " 2 4 8 16 32 64 128 256 512 1024 2048 " =~ " $n " ]];
         # then
         #     :

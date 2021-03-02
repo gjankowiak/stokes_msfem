@@ -15,6 +15,7 @@ fespace Wh(Th,P1);
 fespace Zh(Th,P0);
 
 fespace VK(K,P1);
+fespace ZK(K,P0);
 fespace PK(K,P1);
 fespace VM(M,P1);
 
@@ -26,6 +27,7 @@ Vh bathone;
 Zh bath, nuh=1, sigh;
 real[int] batharray(bath.n);
 
+cout << "Getting mask" << endl;
 if (maskexists(config, Nf) == 0) {
     loadmask(config, Nf, batharray);
     bath[] = batharray;

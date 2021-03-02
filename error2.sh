@@ -2,6 +2,8 @@
 
 shopt -s failglob
 
+function join_by { local IFS="$1"; shift; echo "$*"; }
+
 listconfigs()
 {
     avail_configs=()
@@ -30,7 +32,7 @@ else
     exit 1
 fi
 
-bd=$PWD
+bd=/scratch/scratch/jankowiak/msfem
 
 Nf=$1
 if [[ $Nf =~ ^-?[0-9]+$ ]]
@@ -64,17 +66,32 @@ do
     shift
 done
 
-ref_file=(${bd}/refs/${config}_${Nf}.dat)
-echo ${ref_file}
-
 FF_VERBOSE=0
+declare -a available_mesh_sizes
 
 for CRk in 2 3
 do
+    ref_dir="${bd}/REF_${config}_data"
     pb_dir="${bd}/CR${CRk}_${config}_data"
     date=$(date +%Y-%m-%d_%H:%M:%S)
 
-    sed -e "s/#config#/${config}/" -e "s/#Nf#/${Nf}/" -e "s!#reffile#!${ref_file}!" -e "s!#crkdir#!${pb_dir}!" -e "s/#CRk#/${CRk}/" <error2.edp.in >error2.edp
+    available_mesh_sizes=()
+
+    globbed_dirs=($pb_dir/$Nf-*)
+    for d in ${globbed_dirs[@]};
+    do
+        stripped=${d#$pb_dir/}
+        available_mesh_sizes+=(${stripped/$Nf-/})
+    done
+
+    sizes_string=$(join_by , ${available_mesh_sizes[@]})
+
+    first_size=${available_mesh_sizes[0]}
+
+    echo "Found the following mesh sizes:"
+    echo ${available_mesh_sizes[@]}
+
+    sed -e "s/#config#/${config}/" -e "s/#Nf#/${Nf}/" -e "s!#refdir#!${ref_dir}!" -e "s!#crkdir#!${pb_dir}!" -e "s/#CRk#/${CRk}/" -e "s/#nbase#/$first_size/" -e "s/#sizes#/$sizes_string/" <error2.edp.in >error2.edp
 
     FF_VERBOSITY=0 FreeFem++ error2.edp
 

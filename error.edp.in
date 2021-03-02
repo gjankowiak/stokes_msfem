@@ -8,8 +8,8 @@ string crkdir = "#crkdir#";
 include "#refdir#/#Nf#/params.edp"
 
 //ns = [4, 8, 16, 32, 64, 128];
-//int[int] ns = [8, 15, 20, 27, 36, 45, 90, 135];
-int[int] ns = [15, 20, 27, 36, 45, 90, 135];
+int[int] ns = [8, 15, 20, 27, 36, 45, 90, 135];
+int[int] ns = [5, 15, 27, 45, 90];
 
 int ncases = ns.n;
 

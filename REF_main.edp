@@ -6,7 +6,8 @@ include "params.edp"
 
 include "utils.edp"
 
-load "MUMPS_FreeFem"
+//load "MUMPS"
+load "MPICG"
 //load "SuperLu"
 
 include "defs.edp"

@@ -1,5 +1,5 @@
-real[int] foo(6);
+mesh Th = square(3,2,[2*x,1*y], flags=1);
 
-foo[0] = 1;
+cout << 5 % 2 << endl;
 
-cout << foo.max-foo.min << endl;
+plot(Th, wait=1);

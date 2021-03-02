@@ -6,21 +6,27 @@ func string runcommand(string cmd) {
     ifstream resultstream(tmp);
     resultstream >> sout;
     cout << "+" + sout + "+" << endl;
-    string cleanupcommand = "rm " + tmp;
+    cout << "Retcode: " << retcode << endl;
+    string cleanupcommand = "rm -f " + tmp;
     system(cleanupcommand);
+    cout << "+" + sout + "+" << endl;
     return sout;
 }
 
 func string getmaskpath(string config, int Nf) {
+    cout << "Querying hostname" << endl;
+    string hostname = runcommand("hostname");
+    cout << hostname << endl;
     string prefix;
-    if (runcommand("hostname") == "gauss") {
+    if (hostname == "gauss") {
         prefix = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/";
-    } else if (runcommand("hostname") == "potier") {
+    } else if (hostname == "potier") {
         prefix = "/home/gaspard/Documents/git/code/msfem_sshfs/";
     } else {
         prefix = "/users/jankowiak/Documents/code/stokes/freefem/";
     }
-    return prefix + "configs/" + config + "/masks/" + Nf + ".dat";
+    string path = prefix + "configs/" + config + "/masks/" + Nf + ".dat";
+    return path;
 }
 
 func int fileexists(string filename) {
@@ -32,7 +38,9 @@ func int fileexists(string filename) {
 
 func int maskexists(string config, int Nf) {
     string maskpath;
+    cout << "Querying mask path ... ";
     maskpath = getmaskpath(config, Nf);
+    cout << maskpath << endl;
     int retcode;
     string command = "stat '" + maskpath + "' >/dev/null";
     retcode = system(command);
@@ -41,9 +49,12 @@ func int maskexists(string config, int Nf) {
 
 func int loadmask(string config, int Nf, real[int] &maskarray) {
     string maskpath;
+    cout << "Querying mask path" << endl;
     maskpath = getmaskpath(config, Nf);
+    cout << "Loading mask at: " << maskpath << endl;
     ifstream maskfile(maskpath);
     maskfile >> maskarray;
+    cout << "Success" << endl;
     return 0;
 }
 

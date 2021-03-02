@@ -1,5 +1,0 @@
-func fx=0;
-func fy=0;
-func gx=(Ly-Y) < 1e-10;
-func gy=0*y;
-

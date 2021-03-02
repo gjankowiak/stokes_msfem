@@ -15,4 +15,4 @@ ls
 #LD_LIBRARY_PATH=/scratch/scratch/opt/freefem/lib/ff++/3.59/lib/ FF_VERBOSITY=100 FreeFem++ "${basedir}/plot.edp"
 FF_VERBOSITY=100 FreeFem++ "${basedir}/plot.edp"
 
-gzip *.vtk
+gzip *.vtu

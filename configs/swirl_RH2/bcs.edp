@@ -1,6 +1,0 @@
-func fx=-100*(Y-0.5);
-func fy=100*(X-0.5);
-func gx=0*x;
-func gy=0*y;
-
-

@@ -2,20 +2,13 @@
 
 include "utils.edp"
 
-string reffile = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/refs/channel_RH_1024.dat";
-string crkdir = "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR3_channel_RH_data";
+string refdir = "/scratch/scratch/jankowiak/msfem/REF_channel_RH_data";
+string crkdir = "/scratch/scratch/jankowiak/msfem/CR3_channel_RH_data";
 
-// FIXME très casse gueule
-include "/home/gjankowiak/Code/MsFEM/Stokes/FreeFem/CR3_channel_RH_data/1024-32/params.edp"
+include "/scratch/scratch/jankowiak/msfem/CR3_channel_RH_data/540-10/params.edp"
 
-//int ncases = 6;
-int ncases = 5;
-int[int] ns(ncases);
-//ns = [4, 8, 16, 32, 64, 128];
-//ns = [2, 4, 8, 16, 20, 30, 40, 50, 60, 70, 80, 90, 100, 128];
-ns = [4, 8, 16, 32, 64, 128];
-
-ncases = ns.n;
+int[int] ns = [10,135,20,4,45,90];
+int ncases = ns.n;
 
 mesh Th = square(Nx,Ny,[Lx*x,Ly*y], flags=1);
 
@@ -27,7 +20,14 @@ string holespath;
 holespath = "configs/" + config + "/masks/" + Nf + ".dat";
 ifstream holesfile(holespath);
 holesfile >> holes[];
-mask = 1-holes;
+
+varf heatstep(uh, vh) = int2d(Th)(uh*vh - hTriangle^3*(dx(uh)*dx(vh) + dy(uh)*dy(vh))) + on(1,2,3,4, uh=0);
+matrix heat = heatstep(Vh, Vh);
+Vh tempholes1, holes1 = holes;
+Vh0 tempholes0;
+tempholes1[] = heat*holes1[];
+tempholes0 = tempholes1 > 0;
+mask = 1-tempholes0;
 
 // load reference data
 Vh UxRef, UyRef, PRef;
@@ -47,22 +47,22 @@ ofstream csv(errorcsv);
 csv << "n,U L2 error,U H1 error,P L2 error,P L2 fine error,U rel L2 error,U rel H1 error,P rel L2 error,P rel L2 fine error,directory" << endl;
 
 {
-    // rundir = refdir + "/" + Nf;
-    // uxfilename = rundir + "/ux.dat";
-    // uyfilename = rundir + "/uy.dat";
-    // pfilename = rundir + "/p.dat";
+     rundir = refdir + "/" + Nf;
+     uxfilename = rundir + "/ux.dat";
+     uyfilename = rundir + "/uy.dat";
+     pfilename = rundir + "/p.dat";
 
-    // ifstream uxfile(uxfilename);
-    // ifstream uyfile(uyfilename);
-    // ifstream pfile(pfilename);
+     ifstream uxfile(uxfilename);
+     ifstream uyfile(uyfilename);
+     ifstream pfile(pfilename);
 
-    // uxfile >> UxRef[];
-    // uyfile >> UyRef[];
-    // pfile  >> PRef[];
+     uxfile >> UxRef[];
+     uyfile >> UyRef[];
+     pfile  >> PRef[];
 
-    cout << "reffile: " << reffile << endl;
-    ifstream sol(reffile);
-    sol >> UxRef[] >> UyRef[] >> PRef[];
+    //cout << "reffile: " << reffile << endl;
+    //ifstream sol(reffile);
+    //sol >> UxRef[] >> UyRef[] >> PRef[];
 
     UL2 = sqrt(int2d(Th)(mask*(UxRef*UxRef+UyRef*UyRef)));
     UH1 = sqrt(int2d(Th)(mask*(dx(UxRef)*dx(UxRef) + dy(UxRef)*dy(UxRef) +
@@ -92,15 +92,22 @@ for (int i=0; i<ncases; i++)
     pfilename = rundir + "/p.dat";
     cpfilename = rundir + "/CP.dat";
 
+    cout << uxfilename << endl;
+
     ifstream uxfile(uxfilename);
     ifstream uyfile(uyfilename);
     ifstream pfile(pfilename);
     ifstream cpfile(cpfilename);
 
-    uxfile >> UxCR[];
-    uyfile >> UyCR[];
-    pfile  >> PCR[];
-    cpfile  >> CPCR[];
+    try {
+        uxfile >> UxCR[];
+        uyfile >> UyCR[];
+        pfile  >> PCR[];
+        cpfile  >> CPCR[];
+    } catch (...) {
+        cout << "[error] Couldn't load data for n=" << nn << "!" << endl;
+        continue;
+    }
 
     real ul2error, uh1error, cpl2error, pl2error;
     real urell2error, urelh1error, cprell2error, prell2error;

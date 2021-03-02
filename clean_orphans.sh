@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEDIR="$PWD"
+BASEDIR="/scratch/scratch/jankowiak/msfem"
 
 function clean_dirs {
     indexed_dirs=()

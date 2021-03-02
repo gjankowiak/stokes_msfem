@@ -48,21 +48,22 @@ fi
 
 [ -d "$dst_dir" ] || mkdir -p "$dst_dir" || exit 666
 #cp {${method},params,defs,holes}_${config}.edp ${method}_main.edp save.edp mpi.edp utils.edp "$dst_dir"
-cp params.edp defs.edp configs/${config}/{bcs,holes}.edp utils.edp ${method}_{compute,main}.edp save.edp mpi.edp "$dst_dir"
+cp params.edp defs.edp configs/${config}/{bcs,holes}.edp utils.edp ${method}_{compute,main}.edp save.edp mpi.edp julia_freefem_io.jl juliasolve.jl "$dst_dir"
 cd "$dst_dir" || exit 666
 
 echo "$method" > method.txt
 
 #export FF_VERBOSITY=0
 
-ulimit -v 16000000
+ulimit -v 30000000
 
 EDPFILE="${method}_main.edp"
 
 if [ "$HOSTNAME" == "greygoo" ]
+#if [ "$method" == "REF" ]
 then
     FreeFem++ "$EDPFILE"
 else
-    mpirun -n 1 FreeFem++-mpi -ne "$EDPFILE"
-    #FreeFem++ -ne "$EDPFILE"
+    #FreeFem++ "$EDPFILE"
+    ff-mpirun -n 1 "$EDPFILE"
 fi

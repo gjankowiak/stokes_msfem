@@ -1,33 +1,46 @@
+import Printf:@printf
+import DelimitedFiles:readdlm
+import SparseArrays:sparse
+
 function ff2julia_mat(filename)
     f = open(filename)
     readline(f)
     readline(f)
-    readline(f)
     meta = split(readline(f), ' ')
     n, m = parse(Int, meta[1]), parse(Int, meta[2])
+    println("n:", n, ", m:", m)
     x = readdlm(f)
-    I, J, V = convert(Array{Int64,1}, x[:,1]), convert(Array{Int64,1}, x[:,2]), x[:,3]
+    I, J, V = convert(Array{Int64,1}, x[:,1]) .+ 1, convert(Array{Int64,1}, x[:,2]) .+ 1, x[:,3]
+    println("min/max I: ", extrema(I))
+    println("min/max J: ", extrema(J))
     return sparse(I, J, V, m, n)
+end
+
+function parse_line(l::String, T=Float64)
+    return map(x -> parse(T, x), filter!(x -> x != "", split(l, "\t")))
 end
 
 function ff2julia_vec(filename)
     println("Opening ", filename)
     f = open(filename)
-    println("Parsing size")
+    print("Parsing size... ")
     firstline = readline(f)
-    println("-", firstline, "-")
     n = parse(Int, firstline)
+    println(n)
     println("Reading data")
-    x = readdlm(f)
-    println("Read file, converting")
-    res = Array{Float64, 1}(n)
+
+    res = Array{Float64, 1}(undef, n)
     d, r = divrem(n, 5)
-    i = 0
+
     for i in 1:d
-        res[(i-1)*5 + 1:i*5] = x[i,:]
+        l = readline(f)
+        res[(i-1)*5 + 1:i*5] = parse_line(l)
     end
+
     println("tail...")
-    res[i*5+1:n] = x[i*5+1:n]
+    if r > 0
+        res[d*5+1:n] = parse_line(readline(f))
+    end
     println("done")
     return res;
 end

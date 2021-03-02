@@ -1,4 +1,5 @@
 #!/home/gjankowiak/tmp/julia-0.4.2/julia
+import UnicodePlots
 
 println("welcome to juliasolve")
 
@@ -21,6 +22,11 @@ A = ff2julia_mat(ARGS[1]);
 
 println("Reading right hand side (", ARGS[2], ")")
 b = ff2julia_vec(ARGS[2]);
+
+A_thres = A .> 1e10
+println(UnicodePlots.spy(A, maxwidth=200, maxheight=75, labels=true, color=:auto))
+println(UnicodePlots.spy(A_thres, maxwidth=200, maxheight=75, labels=true, color=:auto))
+
 
 println("Solving")
 x_julia = A\b;
