@@ -84,8 +84,9 @@ do
         available_mesh_sizes+=(${stripped/$Nf-/})
     done
 
-    sizes_string=$(join_by , ${available_mesh_sizes[@]})
+    #available_mesh_sizes=(4 10 20 45)
 
+    sizes_string=$(join_by , ${available_mesh_sizes[@]})
     first_size=${available_mesh_sizes[0]}
 
     echo "Found the following mesh sizes:"

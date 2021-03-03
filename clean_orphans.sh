@@ -5,6 +5,10 @@ BASEDIR="/scratch/scratch/jankowiak/msfem"
 function clean_dirs {
     indexed_dirs=()
 
+    if [[ ! -f journal.txt ]];
+    then
+        return 1
+    fi
     head -n 1 journal.txt > journal.txt.new
     while read line; do
         dirname=$(echo $line | awk '{print $1}')
@@ -31,6 +35,7 @@ function clean_dirs {
     grep -v '^#' journal.txt.new > journal.txt
 }
 
+cd "$BASEDIR"
 for d in CR*_data REF*_data
 do
     cd "$d"

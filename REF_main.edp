@@ -6,8 +6,8 @@ include "params.edp"
 
 include "utils.edp"
 
-//load "MUMPS"
-load "MPICG"
+load "MUMPS"
+//load "MPICG"
 //load "SuperLu"
 
 include "defs.edp"

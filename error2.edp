@@ -1,11 +1,11 @@
-//string config = "channel_RH";
+//string config = "channel_RH2";
 
 include "utils.edp"
 
-string refdir = "/scratch/scratch/jankowiak/msfem/REF_channel_RH_data";
-string crkdir = "/scratch/scratch/jankowiak/msfem/CR3_channel_RH_data";
+string refdir = "/scratch/scratch/jankowiak/msfem/REF_channel_RH2_data";
+string crkdir = "/scratch/scratch/jankowiak/msfem/CR3_channel_RH2_data";
 
-include "/scratch/scratch/jankowiak/msfem/CR3_channel_RH_data/540-10/params.edp"
+include "/scratch/scratch/jankowiak/msfem/CR3_channel_RH2_data/1080-10/params.edp"
 
 int[int] ns = [10,135,20,4,45,90];
 int ncases = ns.n;

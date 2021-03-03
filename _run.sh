@@ -59,8 +59,8 @@ ulimit -v 30000000
 
 EDPFILE="${method}_main.edp"
 
-if [ "$HOSTNAME" == "greygoo" ]
-#if [ "$method" == "REF" ]
+#if [ "$HOSTNAME" == "greygoo" ]
+if [ "$method" == "REF" ]
 then
     FreeFem++ "$EDPFILE"
 else

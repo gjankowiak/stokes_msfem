@@ -50,6 +50,7 @@ if (uzawa) {
     {
         int verb=verbosity;
         verbosity=0;
+        set(A, solver=sparsesolver, master=0);
         b[]  = Bx'*pp; b[] += Fx[];
         Ux[] = A^-1*b[];
         b[]  = By'*pp; b[] += Fy[];
