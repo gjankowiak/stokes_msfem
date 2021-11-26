@@ -1,5 +1,8 @@
 include "utils.edp"
 include "params.edp"
 include "defs.edp"
+load "iovtk"
 
-plot(bath, fill=1, wait=1, ps="holes.eps");
+plot(bath, fill=1, wait=1);
+savevtk("obstacles.vtu", Th, bath, bin=false);
+//plot(bath, fill=1, wait=1, ps="holes.eps");

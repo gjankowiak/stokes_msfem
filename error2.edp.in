@@ -64,10 +64,10 @@ csv << "n,U L2 error,U H1 error,P L2 error,P L2 fine error,U rel L2 error,U rel 
     //ifstream sol(reffile);
     //sol >> UxRef[] >> UyRef[] >> PRef[];
 
-    UL2 = sqrt(int2d(Th)(mask*(UxRef*UxRef+UyRef*UyRef)));
-    UH1 = sqrt(int2d(Th)(mask*(dx(UxRef)*dx(UxRef) + dy(UxRef)*dy(UxRef) +
-                               dx(UyRef)*dx(UyRef) + dy(UyRef)*dy(UyRef))));
-    PL2 = sqrt(int2d(Th)(mask*PRef*PRef));
+    UL2 = sqrt(int2d(Th)((UxRef*UxRef+UyRef*UyRef)));
+    UH1 = sqrt(int2d(Th)((dx(UxRef)*dx(UxRef) + dy(UxRef)*dy(UxRef) +
+                          dx(UyRef)*dx(UyRef) + dy(UyRef)*dy(UyRef))));
+    PL2 = sqrt(int2d(Th)(PRef*PRef));
 }
 
 for (int i=0; i<ncases; i++)
@@ -112,11 +112,12 @@ for (int i=0; i<ncases; i++)
     real ul2error, uh1error, cpl2error, pl2error;
     real urell2error, urelh1error, cprell2error, prell2error;
 
-    ul2error = sqrt(int2d(Th)(mask*((UxRef - UxCR)^2 + (UyRef-UyCR)^2)));
-    uh1error = sqrt(int2d(Th)(mask*((dx(UxRef) - dx(UxCR))^2 + (dx(UyRef)-dx(UyCR))^2
+    ul2error = sqrt(int2d(Th)(((UxRef - UxCR)^2 + (UyRef-UyCR)^2)));
+    uh1error = sqrt(int2d(Th)(((dx(UxRef) - dx(UxCR))^2 + (dx(UyRef)-dx(UyCR))^2
                                +(dy(UxRef) - dy(UxCR))^2 + (dy(UyRef)-dy(UyCR))^2)));
-    cpl2error = sqrt(int2d(Th)(mask*((PRef - CPCR)^2)));
-    pl2error = sqrt(int2d(Th)(mask*((PRef - CPCR - PCR)^2)));
+    cpl2error = sqrt(int2d(Th)(((PRef - CPCR)^2)));
+    //pl2error = sqrt(int2d(Th)(mask*((PRef - CPCR - PCR)^2)));
+    pl2error = sqrt(int2d(Th)(((PRef - PCR)^2)));
 
     urell2error = ul2error/UL2;
     urelh1error = uh1error/UH1;

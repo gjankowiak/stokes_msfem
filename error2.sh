@@ -84,13 +84,16 @@ do
         available_mesh_sizes+=(${stripped/$Nf-/})
     done
 
-    #available_mesh_sizes=(4 10 20 45)
+    IFS=$'\n' sorted_mesh_sizes=($(sort -n <<<"${available_mesh_sizes[*]}"))
+    unset IFS
 
-    sizes_string=$(join_by , ${available_mesh_sizes[@]})
-    first_size=${available_mesh_sizes[0]}
+    #sorted_mesh_sizes=(54)
+
+    sizes_string=$(join_by , ${sorted_mesh_sizes[@]})
+    first_size=${sorted_mesh_sizes[0]}
 
     echo "Found the following mesh sizes:"
-    echo ${available_mesh_sizes[@]}
+    echo ${sorted_mesh_sizes[@]}
 
     sed -e "s/#config#/${config}/" -e "s/#Nf#/${Nf}/" -e "s!#refdir#!${ref_dir}!" -e "s!#crkdir#!${pb_dir}!" -e "s/#CRk#/${CRk}/" -e "s/#nbase#/$first_size/" -e "s/#sizes#/$sizes_string/" <error2.edp.in >error2.edp
 
